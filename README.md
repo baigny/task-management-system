@@ -1,427 +1,216 @@
 # Task Management System
 
-Collaborative task management REST API built with Express, TypeScript, and PostgreSQL.
+A backend REST API for teams to organize projects, assign tasks, and collaborate
+through comment threads and protected attachments.
 
-Development takes place on `feat-task-management`, branched from `main`.
+## Features
 
-## Local setup
+- Registration, login, profile updates, password recovery, and revocable sessions.
+- Projects, email-bound invitations, memberships, and ownership transfer.
+- Task CRUD, assignment, completion, search, filtering, sorting, and pagination.
+- Multiple comment threads per task, with direct replies.
+- Protected JPG, JPEG, PNG, and PDF attachments up to 10 MB.
+- Soft deletion, restoration, activity history, and permanent-deletion cascades.
 
-Requires Node.js 24+ and npm.
+## Tech stack
+
+Node.js 24+, Express 5, TypeScript, PostgreSQL 17, Prisma, Zod, Argon2id,
+JWT, Multer, and Nodemailer. Tests use Vitest and Supertest; API documentation
+uses OpenAPI/Swagger and Postman. Docker Compose provides local services.
+
+## Setup
+
+Requires Node.js 24+, npm, and Docker Desktop with Docker Compose.
+
+```sh
+git clone --branch feat-task-management https://github.com/baigny/task-management-system.git
+cd task-management-system
+cp .env.example .env
+node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"
+```
+
+In PowerShell, use `Copy-Item .env.example .env` instead of `cp`.
+Paste the generated value into `JWT_SECRET` in `.env`. Keep `.env` private;
+only `.env.example` belongs in Git. Preserve an existing `.env` when updating.
+
+### Run with Docker
+
+```sh
+docker compose up --build -d --wait
+```
+
+Compose starts PostgreSQL, Mailpit, and the API, and applies migrations before
+starting the API. Database and upload volumes persist across restarts.
+
+### Run the API locally
 
 ```sh
 npm ci
-cp .env.example .env
-# Generate a JWT secret and paste it into .env; never commit the output.
-node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"
-npm run db:generate
-npm run check
-```
-
-`DATABASE_URL`, `JWT_SECRET`, `PORT`, `CORS_ORIGIN`, and `UPLOAD_DIR` configure
-the service. JWT secrets must contain at least 32 characters, and example secrets
-are rejected in production. The local `.env` is ignored by Git. Never commit credentials.
-
-`npm run check` runs type checking, linting, configuration tests, and compilation.
-GitHub Actions runs the same checks for every feature branch push and pull request.
-The workflow pins [checkout v7.0.1](https://github.com/actions/checkout/releases/tag/v7.0.1)
-and [setup-node v7.1.0](https://github.com/actions/setup-node/releases/tag/v7.1.0) to
-immutable commits, uses their Node.js 24 runtime, and does not persist checkout credentials.
-Dependencies and database models are introduced with the features that use them.
-
-The API removes expired sessions and password-reset tokens on startup and every
-15 minutes. Throttle records are retained for 24 hours, beyond their 15-minute
-enforcement window. Each run deletes at most 500 rows per table; larger backlogs
-drain over subsequent runs. Cleanup failures are logged and retried next run.
-
-## HTTP API
-
-### Protected task attachments
-
-Use bearer authentication on every attachment request. Members can upload one file
-with `POST /api/v1/projects/:projectId/tasks/:taskId/attachments` using multipart
-field `file` and no other fields. Allowed extensions are **.jpg, .jpeg, .png, .pdf**;
-declared media types and binary signatures must match. Text and other formats are
-rejected. Files must be nonempty and at most 10 MB (10,485,760 bytes). Uploads are
-limited to 30 requests per IP per 15 minutes. Membership is checked before receiving
-the file and again before saving it.
-
-```sh
-curl -H "Authorization: Bearer $TOKEN" -F "file=@design.pdf;type=application/pdf" \
-  "http://localhost:3000/api/v1/projects/$PROJECT_ID/tasks/$TASK_ID/attachments"
-curl -H "Authorization: Bearer $TOKEN" -o design.pdf \
-  "http://localhost:3000/api/v1/projects/$PROJECT_ID/tasks/$TASK_ID/attachments/$ATTACHMENT_ID/download"
-```
-
-`GET .../attachments?page=1&limit=20` lists metadata. Every download requires a
-current membership and an active project/task. Files use generated names inside
-`UPLOAD_DIR`, outside public routes; responses never reveal storage keys or paths.
-Downloads use attachment disposition, the recorded media type, no-store, and nosniff.
-Authorization is checked when the download stream opens.
-
-The current uploader or project owner may `DELETE .../attachments/:attachmentId`.
-Deletion removes metadata immediately and queues physical cleanup in the same
-transaction. The worker processes up to 100 files every minute and retries failures;
-its queue survives restarts. Task/project permanent purges enqueue all child files
-before cascading metadata deletion. Soft deletion retains files for restoration.
-An upload cleanup reservation exists before any file is written, so abandoned uploads
-are reclaimed after one hour; rejected uploads become eligible immediately. Storage
-and cleanup assume the documented single API instance with a persistent upload volume.
-
-### Threaded task comments
-
-Members can start a thread with `POST /api/v1/projects/:projectId/tasks/:taskId/comments`
-and `{ "body": "Please review this task" }`. Add `"parentId": "<root-comment-id>"`
-to reply inside that thread. Replies must target a root on the same task; deeper
-nesting is rejected. `GET` on the collection pages thread roots and reply counts;
-`GET .../comments/:commentId/replies?page=1&limit=20` pages replies chronologically.
-Both lists include public author profiles and stable ID ordering for ties.
-
-`DELETE .../comments/:commentId` allows the author or project owner to clear the
-text. A placeholder (`body: null`, `deletedAt` set) preserves the conversation and
-replies; members can continue replying to that thread. Removed members immediately
-lose access. Soft-deleted tasks/projects hide comments until restoration. Permanent
-task/project deletion cascades threads and replies. Every comment change and its
-activity record commit together. Use bearer authentication for every request.
-
-Run `npm run dev` for development or `npm run build && npm start` for compiled code.
-The API listens on `http://localhost:3000` by default. `GET /health` returns
-`{ "status": "ok" }`. Swagger UI is at `/docs` and its specification is at
-`/openapi.json`. Import `postman/TaskManagement.postman_collection.json` into Postman.
-
-Errors use `{ "error": { "code": "...", "message": "..." } }`, with validation
-details when applicable. JSON bodies are limited to 100 KB. Responses include an
-`X-Request-Id` for correlation with structured logs; authorization and cookie headers
-are redacted. Set `CORS_ORIGIN` to your frontend URL.
-
-## PostgreSQL and Docker
-
-Docker Desktop is required for the local database containers.
-
-```sh
-docker compose up -d db
+docker compose up -d --wait db mailpit
 npm run db:generate
 npm run db:migrate
 npm run dev
 ```
 
-`GET /ready` queries PostgreSQL and returns 503 when unavailable; `/health` stays
-independent of database availability. Models and migrations arrive with each feature.
-For the complete container setup, run `docker compose up --build -d --wait`. A separate
-migration job finishes before the API starts, and Compose waits for the API readiness
-health check. The API port follows `PORT` and binds to localhost for local development. The API runs as a nonroot user in a
-runtime image without TypeScript, test tools, or the Prisma CLI. Database and upload
-volumes persist across restarts. The supplied database credentials are for local use.
+For compiled code, run `npm run build` followed by `npm start`.
+The API defaults to `http://localhost:3000`. Use either the Docker API or the
+locally running API on this port.
 
-## Isolated integration tests
+## Environment variables
+
+Copy values from [.env.example](.env.example) and adjust them for your environment.
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection for the API and migrations |
+| `TEST_DATABASE_URL` | Separate PostgreSQL database whose name ends in `_test` |
+| `JWT_SECRET` | Random secret of at least 32 characters; replace the placeholder |
+| `PORT` | API port; default `3000` |
+| `CORS_ORIGIN` | Allowed client origin; default `http://localhost:5173` |
+| `UPLOAD_DIR` | Private attachment directory; default `uploads` |
+| `NODE_ENV` | `development`, `test`, or `production` |
+| `SMTP_HOST`, `SMTP_PORT` | Password-recovery mail server; local Mailpit uses `localhost:1025` |
+| `SMTP_SECURE` | `true` for implicit TLS; default `false` |
+| `SMTP_USER`, `SMTP_PASSWORD` | Optional SMTP credentials; configure both together |
+| `SMTP_FROM` | Sender email address |
+
+Compose sets the API's database and SMTP hosts to their container service names.
+Keep `UPLOAD_DIR=uploads` with the supplied Compose upload-volume mount.
+For a production SMTP provider, configure TLS or STARTTLS. The supplied database
+credentials are for local development.
+
+## API documentation
+
+All application routes use `/api/v1`.
+
+- [Swagger UI](http://localhost:3000/docs): endpoint schemas, examples, permissions, and errors.
+- [OpenAPI JSON](http://localhost:3000/openapi.json): machine-readable specification.
+- [Postman collection](postman/TaskManagement.postman_collection.json): import and set `baseUrl`.
+- `GET /health`: process health. `GET /ready`: database readiness; returns 503 during an outage.
+
+Postman captures tokens and resource IDs from successful creation responses.
+Use the API documentation for complete request/response details.
+
+### Authentication and basic usage
+
+Register with matching passwords of 12 to 128 characters. Registration and login
+return `user`, `token`, and `expiresAt`. Send the token on protected requests:
 
 ```sh
+curl -X POST http://localhost:3000/api/v1/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"developer@example.com","name":"Developer","password":"strong-password-123","confirmPassword":"strong-password-123"}'
+
+curl http://localhost:3000/api/v1/users/me \
+  -H 'Authorization: Bearer <token>'
+
+curl -X POST http://localhost:3000/api/v1/projects \
+  -H 'Authorization: Bearer <token>' -H 'Content-Type: application/json' \
+  -d '{"name":"Release","description":"Coordinate the release"}'
+
+curl 'http://localhost:3000/api/v1/tasks?assigneeId=me&status=OPEN&page=1&limit=20' \
+  -H 'Authorization: Bearer <token>'
+```
+
+These curl examples use Bash syntax; Windows users can use Postman or Swagger.
+Passwords are hashed with Argon2id. JWTs expire after one hour and reference database
+sessions. `/auth/logout` revokes the current session; `/auth/logout-all` revokes all
+sessions immediately. Authentication and recovery endpoints are rate-limited.
+
+For password recovery, call `POST /api/v1/auth/forgot-password` with an email.
+Read the local recovery email at [Mailpit](http://localhost:8025), then send its token
+and matching new passwords to `/api/v1/auth/reset-password`. Tokens expire after
+15 minutes and work once. Resetting or changing a password revokes all sessions.
+Mailpit captures local mail without sending it externally.
+
+### Project collaboration
+
+1. Create a project; its creator becomes the owner.
+2. As owner, `POST /projects/{projectId}/invitations` with the invitee's email.
+3. Share the returned token securely. It expires after seven days and is single-use.
+4. The invitee logs in with that email and calls `POST /invitations/accept` with
+   `{ "token": "<invitation-token>" }`. Both paths use the `/api/v1` prefix.
+
+Users can belong to multiple projects. Owners manage project details, invitations,
+membership, and ownership. Members can create and update project tasks and assign
+current members. Removing a member supports manual reassignment or automatic
+assignment to the least-loaded remaining members, with the owner as fallback.
+Owners must transfer ownership before leaving.
+
+Task statuses are `OPEN`, `IN_PROGRESS`, and `COMPLETED`. Lists support search,
+status/project/assignee filters, and allowlisted sorting. Pagination returns
+`items`, `total`, `page`, and `limit`; default limit is 20 and maximum is 100.
+
+To start a task thread, post `{ "body": "Please review this" }` to
+`/projects/{projectId}/tasks/{taskId}/comments`. Add `parentId` to reply to a thread
+root on that task. Authors or owners can remove comment text while preserving replies.
+
+Upload one multipart `file` to `/projects/{projectId}/tasks/{taskId}/attachments`.
+Only `.jpg`, `.jpeg`, `.png`, and `.pdf` are accepted, with matching media types and
+signatures, up to 10 MB (10,485,760 bytes). Downloads require current membership;
+uploaders or owners can remove files. See Swagger/Postman for the download route.
+
+Members may soft-delete tasks; only owners restore or permanently purge them.
+Project deletion is owner-only. Soft-deleting a project hides its children;
+restoration preserves each task's own trash state. Permanent deletion requires
+prior soft deletion and cascades child records. Physical file deletion uses a
+durable retry queue. Removed members lose access to subsequent requests.
+
+### Errors
+
+Errors use `{ "error": { "code": "...", "message": "..." } }`; validation errors
+may include `details`. Common statuses are 400 (validation), 401 (authentication),
+403 (permission), 404 (missing/inaccessible resource), 409 (conflict), 413 (size),
+415 (file type), and 429 (rate limit). Requests include `X-Request-Id` for log correlation.
+
+## Tests and development commands
+
+```sh
+npm run check
 npm run db:test:up
 npm run test:integration
 ```
 
-`TEST_DATABASE_URL` points to `task_management_test` on port 5433; development uses
-`task_management_dev` on port 5432. The test runner refuses missing URLs or database
-names without the `_test` suffix before running migrations. Test PostgreSQL uses
-temporary storage and never falls back to `DATABASE_URL`. CI provisions its own
-PostgreSQL service and runs the same tests. `npm test` runs tests without a database.
+`check` runs type checking, linting, Swagger/Postman consistency checks, unit/contract
+tests, and build. Integration tests apply migrations to the isolated test database
+on port 5433; development PostgreSQL uses port 5432. The runner rejects database names
+without `_test` and never falls back to the development connection. GitHub Actions
+runs checks and integration tests against PostgreSQL for branch pushes and PRs.
 
-## Maintaining API examples
+| Command | Purpose |
+| --- | --- |
+| `npm test` | Unit and API contract tests without a database server |
+| `npm run db:generate` | Regenerate Prisma client/types after schema changes |
+| `npm run db:dev -- --name <name>` | Create and apply a development migration |
+| `npm run db:migrate` | Apply committed migrations |
+| `npm run docs:postman` | Regenerate Postman from `src/openapi.ts` |
+| `npm run docs:check` | Check Postman matches the API contract |
 
-Swagger and Postman share endpoint metadata in `src/openapi.ts`. When implementing
-a feature, update its request/response schemas and examples in the same commit as
-the routes, services, comments, tests, and README instructions. Run:
+Update implementation, function comments, tests, Swagger, Postman, and relevant
+README guidance together when adding a feature.
 
-```sh
-npm run docs:postman
-npm run check
+## Project structure
+
+```text
+src/
+  auth/          Authentication, sessions, profile, recovery, and cleanup
+  projects/      Project CRUD and lifecycle
+  invitations/   Invitation issuance and acceptance
+  members/       Membership, ownership, and reassignment
+  tasks/         Task CRUD, discovery, assignment, and lifecycle
+  comments/      Threads and replies
+  attachments/   Uploads, downloads, private storage, and cleanup
+  app.ts         Express middleware and route registration
+  access.ts      Shared project authorization and transactions
+  openapi.ts     API schemas and endpoint metadata
+prisma/          Database schema and versioned migrations
+postman/         Generated API collection
+tests/           Unit, contract, and PostgreSQL integration tests
+scripts/         Documentation and test tooling
 ```
 
-`npm run docs:check` fails when the checked-in Postman collection differs from the
-API contract. Tests validate OpenAPI and the served specification. Postman includes
-response status checks, and the collection's `baseUrl` is configurable.
-`npm run typecheck` also checks test and tooling code. All of these checks run in CI.
+## Current limitations
 
-## Registration and login
-
-Register at `POST /api/v1/auth/register` with `email`, `name`, `password`, and
-`confirmPassword`. Passwords must match and contain 12–128 characters; only an
-Argon2id hash is stored. Duplicate emails return 409. Email addresses are normalized
-to lowercase. Login accepts `email` and `password` at `POST /api/v1/auth/login`.
-Both responses include a public `user`, bearer `token`, and `expiresAt` (one hour).
-
-Tokens reference persisted database sessions. Authentication middleware validates
-the token signature, issuer, audience, expiry, and active database session.
-Authentication responses use `Cache-Control: no-store`; credentials never appear
-in returned user profiles.
-
-Registration/login allow 30 requests per IP per 15 minutes. Login also permits five
-failed attempts per normalized email per 15 minutes, followed by a temporary cooldown.
-Unknown accounts and incorrect passwords share the same error. Successful login
-clears its account counter; account counters persist in PostgreSQL.
-Postman automatically stores login/registration tokens.
-
-## Profile management
-
-Send `Authorization: Bearer <token>` to `GET /api/v1/users/me` to read your account.
-`PATCH /api/v1/users/me` accepts `{ "name": "Updated name" }`. Names are trimmed
-and must contain 1–100 characters. Unknown fields and changes to email, credentials,
-or roles are rejected. Responses contain only `id`, `email`, `name`, and `createdAt`
-and use `Cache-Control: no-store`. The account is always taken from the session.
-
-## Logout
-
-`POST /api/v1/auth/logout` revokes the session identified by your bearer token;
-other devices remain signed in. `POST /api/v1/auth/logout-all` revokes every session
-for the account, including the requesting device. Both return 204. Revoked tokens
-immediately fail subsequent protected requests, even before their JWT expiry.
-Login throttling does not block either logout endpoint.
-
-## Password recovery and changes
-
-Start the local inbox with `docker compose up -d mailpit`. Set `SMTP_HOST=localhost`
-and `SMTP_PORT=1025` in `.env`, then restart the API. Open `http://localhost:8025`
-to read captured emails; Mailpit never sends them externally. Docker Compose routes
-the containerized API directly to Mailpit. For a real SMTP provider, configure
-`SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_FROM`, and paired `SMTP_USER`/
-`SMTP_PASSWORD` credentials. External production SMTP requires TLS or STARTTLS.
-
-1. Call `POST /api/v1/auth/forgot-password` with `{ "email": "developer@example.com" }`.
-   Known and unknown accounts receive the same 202 response. The API never returns
-   the token; account lookup and SMTP delivery run after the response.
-2. Copy the token from the email into Postman's `resetToken` collection variable.
-   Call `POST /api/v1/auth/reset-password` with `token`, `password`, and
-   `confirmPassword`. Tokens expire after 15 minutes and work once. Only token hashes
-   are stored in PostgreSQL. Invalid, expired, and reused tokens share one error.
-3. Log in again after a successful reset: every session and outstanding recovery token
-   is revoked atomically. Concurrent attempts cannot consume the same token twice.
-
-`POST /api/v1/auth/change-password` requires a bearer token, `currentPassword`,
-`password`, and `confirmPassword`. It also revokes all sessions and recovery tokens.
-New passwords follow the registration policy and must match their confirmation.
-Recovery routes allow 20 requests per IP per 15 minutes. Forgot-password and
-change-password each allow five attempts per account per 15 minutes.
-
-Missing SMTP configuration returns 503 uniformly. Delivery failures are logged without
-tokens or SMTP details; undelivered tokens are removed. The bounded, in-memory delivery
-queue is drained during graceful shutdown. If the process is forcibly terminated before
-delivery, request recovery again. No reset token is put in a URL or API response.
-
-## Creating projects
-
-Call `POST /api/v1/projects` with a bearer token and `{ "name": "Release" }`.
-An optional `description` can contain up to 5,000 characters; names are trimmed
-and must contain 1?100 characters. Unsupported fields are rejected.
-The creator becomes the owner and first member atomically. A user may own multiple
-projects. Postman stores the response ID as `projectId` for subsequent requests.
-
-## Reading projects
-
-`GET /api/v1/projects` lists only projects where you are an owner or member.
-Read an individual project at `GET /api/v1/projects/{projectId}`. Nonmembers
-receive 404. Lists accept `page` (default 1) and `limit` (default 20, maximum 100),
-returning `{ "items": [], "total": 0, "page": 1, "limit": 20 }`.
-Projects are ordered newest first with an ID tie-breaker for consistent pagination.
-
-## Updating projects
-
-Only the project owner can call `PATCH /api/v1/projects/{projectId}` with `name`,
-`description`, or both. At least one field is required. Omitted fields retain their
-values; `description: ""` explicitly clears the description. Members receive 403,
-and nonmembers receive 404. Unknown fields, including `ownerId`, are rejected.
-
-## Project deletion and activity
-
-`DELETE /api/v1/projects/{projectId}` soft-deletes the owner's project, recording
-`deletedAt` and `deletedById`. Ordinary reads and collaboration then return 404.
-Memberships and project history remain intact. Owners can list their trash using
-`GET /api/v1/projects?deleted=true` and restore with
-`POST /api/v1/projects/{projectId}/restore`. Active projects cannot be restored again.
-
-Permanent deletion is explicit: after soft deletion, the owner can call
-`DELETE /api/v1/projects/{projectId}/permanent`. It irreversibly removes the project,
-its memberships, and activity records. Active projects cannot be purged.
-
-`GET /api/v1/projects/{projectId}/activity` returns paginated history to members;
-only owners may inspect deleted projects. Creation, updates, soft deletion, and
-restoration append activity in the same transaction as the change. Update history
-records field names without copying description contents. History begins when this
-feature is installed; existing projects do not receive fabricated past events.
-
-## Invitations and joining projects
-
-1. As the project owner, call `POST /api/v1/projects/{projectId}/invitations` with
-   `{ "email": "teammate@example.com" }`. The response contains `invitation` and
-   `token`; Postman stores `invitationToken` and `invitationId`.
-2. Share the token securely. It expires after seven days and is bound to that
-   normalized email. No invitation email service is required. Only its hash is stored.
-3. The invitee registers or logs in with that email, then calls
-   `POST /api/v1/invitations/accept` with `{ "token": "<shared token>" }` and their
-   bearer token. Acceptance creates membership once, without changing ownership.
-   A user can join multiple projects.
-
-Owners can page through `GET /api/v1/projects/{projectId}/invitations` or revoke an
-unused invitation with `DELETE /api/v1/projects/{projectId}/invitations/{invitationId}`.
-Reissuing for the same project/email replaces the old token. Accepted invitations
-cannot be revoked; membership changes are separate operations. Deleted projects
-cannot issue or accept invitations. Permanent project deletion cascades invitations.
-
-Tokens are never included in invitation lists, logs, or activity metadata. Invalid,
-expired, revoked, replaced, reused, and wrong-account tokens share a 400 response.
-Acceptance permits 30 attempts per IP per 15 minutes. Membership changes and activity
-entries commit together under the project lock, including concurrent acceptance.
-
-## Member roles and ownership
-
-`GET /api/v1/projects/{projectId}/members` returns paginated public profiles with
-`OWNER` or `MEMBER` roles. Roles belong to the project: someone can own one project
-and be a member of another. Joining never grants ownership. Credentials and session
-fields are excluded from member responses.
-
-The owner can call `POST /api/v1/projects/{projectId}/ownership` with
-`{ "newOwnerId": "<current member UUID>" }`. The nominated account must already
-belong to the project; the previous owner remains a member. Owner privileges move
-immediately and the activity record commits with the transfer. Concurrent transfers
-are serialized so the project retains exactly one owner. Deleted projects cannot
-change ownership. Set `replacementUserId` in Postman to try the example.
-
-## Type safety and access control
-
-Run `npm run db:generate` after schema changes to refresh Prisma model types.
-Service DTOs are derived from Zod validation, public database projections use Prisma
-payload types, and OpenAPI schemas/operations are checked against OpenAPI types.
-Public requests have no assumed authentication context; protected controllers use a
-checked accessor. Project reads use shared locks so they can proceed concurrently,
-while ownership, membership, and lifecycle mutations use exclusive project locks.
-Regression tests cover JWT issuer/audience/algorithm rejection and read/write locking.
-
-## Leaving projects and reassigning work
-
-Preview removal at `POST /api/v1/projects/{projectId}/members/{userId}/removal-preview`.
-Owners can remove other members; a member can preview and leave using their own
-`userId`. Owners must transfer ownership before leaving. Deleted projects cannot
-change membership. Both preview and removal accept these bodies:
-
-```json
-{ "mode": "AUTOMATIC" }
-```
-
-```json
-{ "mode": "MANUAL", "replacementUserId": "<remaining member UUID>" }
-```
-
-Omitting the body selects automatic mode. Manual selection is owner-only and may
-choose the owner. Automatic mode counts only `OPEN`/`IN_PROGRESS`, non-deleted tasks
-in the current project, chooses the least-loaded remaining member for each task,
-and updates the count after each allocation. Zero-work members are chosen first;
-equal workloads use ascending user IDs. The owner is the fallback when no other
-members remain. Tasks are allocated oldest first with an ID tie-breaker.
-
-Execute with `DELETE /api/v1/projects/{projectId}/members/{userId}`. In Postman,
-set `userId` to the target member while keeping `token` as the acting account token.
-For self-leave, use your own account ID. The response
-contains `unfinishedTasks` and per-recipient `currentTasks`, `reassignedTasks`, and
-`resultingTasks`. Preview returns the same shape without mutation. Execution always
-recalculates: tasks or workloads may have changed since the preview.
-
-Assignment changes, pending-invitation revocation, membership removal, and activity
-records commit together. Removed members immediately lose subsequent project access.
-Completed and soft-deleted tasks retain their historical assignments; task restoration
-validates departed assignees before making tasks visible again. Bulk writes
-and activity inserts are grouped in bounded batches. Permanent project purge now
-cascades task records. Task CRUD HTTP endpoints are documented below.
-
-## Creating tasks
-
-Any current project member can call `POST /api/v1/projects/{projectId}/tasks`:
-
-```json
-{
-  "title": "Prepare release notes",
-  "description": "Summarize the changes",
-  "dueDate": "2027-01-31T12:00:00Z",
-  "status": "OPEN",
-  "assigneeId": "<current project member UUID>"
-}
-```
-
-Only `title` is required (trimmed, 1?200 characters). Description allows up to 10,000
-characters and defaults to an empty string. Status defaults to `OPEN`; supported
-statuses are `OPEN`, `IN_PROGRESS`, and `COMPLETED`. Due dates require a timezone;
-`dueDate` and `assigneeId` may be omitted or explicitly null. Past due dates are valid.
-
-Assignees must currently belong to the same project. The creator comes from the
-session and the project from the path; protected/unknown body fields are rejected.
-Creation and its activity record commit atomically under the project lock, which
-also coordinates assignment with member removal. Deleted projects return 404.
-The response contains the task record; Postman saves its ID as `taskId`.
-
-## Reading and finding tasks
-
-Read a task at `GET /api/v1/projects/{projectId}/tasks/{taskId}` or list a project's
-tasks at `GET /api/v1/projects/{projectId}/tasks`. Discover tasks across your current
-project memberships with `GET /api/v1/tasks`. All require a bearer token.
-
-```sh
-curl 'http://localhost:3000/api/v1/tasks?assigneeId=me&status=OPEN&sortBy=dueDate&sortOrder=asc' \
-  -H 'Authorization: Bearer <token>'
-```
-
-Both lists accept `status`, `assigneeId` (a UUID, `me`, or `unassigned`), `search`,
-`sortBy`, `sortOrder`, `page`, and `limit`. Cross-project discovery also accepts
-`projectId`. Search is a case-insensitive literal substring of title or description;
-percent signs, underscores, and backslashes are treated literally. Sorting accepts
-only `createdAt`, `updatedAt`, `dueDate`, `title`, or `status`; default ordering is
-`createdAt desc`, followed by ID ascending. Tasks without due dates sort last.
-
-Pagination defaults to page 1 and limit 20 (maximum 100) and returns `items`, `total`,
-`page`, and `limit`. Unknown query fields are rejected. Deleted tasks/projects stay
-hidden, including from assigned-to-me results. An inaccessible project filter on
-cross-project discovery returns an empty list; direct resource access returns 404.
-Postman's discovery example defaults to `assigneeId=me`.
-
-## Updating and completing tasks
-
-Any current project member can call
-`PATCH /api/v1/projects/{projectId}/tasks/{taskId}` with at least one of `title`,
-`description`, `dueDate`, `status`, or `assigneeId`:
-
-```json
-{ "status": "COMPLETED" }
-```
-
-```json
-{ "assigneeId": "<current member UUID>", "dueDate": null }
-```
-
-Omitted fields stay unchanged. Set `assigneeId: null` to unassign, `dueDate: null`
-to clear the deadline, or `description: ""` to clear the description. Creation
-validation limits also apply to updates. Project/creator/deletion fields cannot be
-changed through this endpoint. Tasks and projects in trash return 404.
-
-Edits and assignment activity commit together. No-op updates preserve `updatedAt`
-and create no activity. Assignment and member removal share the project lock, so
-unfinished tasks cannot end up assigned to a removed member. Completed historical
-assignments may remain after removal; editing unrelated fields preserves that history,
-while any explicitly supplied assignee must currently belong to the project. Reopening
-a completed task whose assignee has left requires a current assignee or explicit
-`assigneeId: null` in the same update.
-
-## Task deletion and restoration
-
-Members can call `DELETE /api/v1/projects/{projectId}/tasks/{taskId}` to soft-delete
-a task. `deletedAt` and `deletedById` are recorded; normal reads and discovery hide it.
-Only owners can list task trash with `GET /api/v1/projects/{projectId}/tasks?deleted=true`,
-restore with `POST /api/v1/projects/{projectId}/tasks/{taskId}/restore`, or permanently
-purge with `DELETE /api/v1/projects/{projectId}/tasks/{taskId}/permanent`.
-Cross-project `GET /api/v1/tasks?deleted=true` includes only caller-owned active projects.
-
-A task must be soft-deleted before permanent purge. Restoration preserves its status,
-details, and existing valid assignee. If the assignee has left, the owner restores it
-with a replacement chosen by the same workload balancing rule as member removal;
-activity retains the previous assignment. Explicitly unassigned tasks remain unassigned.
-Restoring an active task returns 409; repeated soft deletion returns 404.
-
-Deleting a project hides every child task without overwriting individual task deletion
-flags. Restore the project first; tasks that were already in trash stay there, while
-previously active tasks become visible again. Permanent project purge cascades task
-records. Task purge keeps a project activity record; project purge removes project history.
+The application is API-only and uses one API instance for local-file storage and
+cleanup. Invitation tokens are shared manually; invitation email delivery is not
+included. Notifications, SSE, and Gemini assistance are not implemented yet.
