@@ -7,6 +7,7 @@ import type { ResetPasswordData, ChangePasswordData } from './validation.js';
 import { hashPassword } from './service.js';
 import { accountKey, takeAccountAttempt } from './throttle.js';
 import { sendResetEmail } from './mail.js';
+import { notifyUserRevoked } from './revocation.js';
 
 const pending = new Set<Promise<void>>();
 
@@ -67,6 +68,7 @@ export async function resetPassword(input: ResetPasswordData) {
     await tx.passwordReset.deleteMany({ where: { userId: user.id } });
     await tx.authAttempt.deleteMany({ where: { key: { in: [accountKey('login', user.email), accountKey('change-password', user.email)] } } });
   });
+  notifyUserRevoked(found.userId);
 }
 
 /** Require the current password and a still-valid session before changing credentials. */
@@ -87,4 +89,5 @@ export async function changePassword(userId: string, sessionId: string, input: C
     await tx.passwordReset.deleteMany({ where: { userId } });
     await tx.authAttempt.deleteMany({ where: { key: { in: [accountKey('login', user.email), accountKey('change-password', user.email)] } } });
   });
+  notifyUserRevoked(userId);
 }

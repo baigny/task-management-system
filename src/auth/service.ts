@@ -7,6 +7,7 @@ import { ApiError } from '../errors.js';
 import { accountKey, takeAccountAttempt } from './throttle.js';
 import { publicUser, type AuthResult, type PublicUser, type SessionResult } from './types.js';
 import type { RegistrationData, CredentialsInput, ProfileUpdateInput } from './validation.js';
+import { notifySessionRevoked, notifyUserRevoked } from './revocation.js';
 const hashingOptions = { type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 } as const;
 /** Hash a password with explicit Argon2id memory, time, and parallelism settings. */
 export const hashPassword = (password: string) => argon2.hash(password, hashingOptions);
@@ -59,14 +60,17 @@ export function updateProfile(userId: string, input: ProfileUpdateInput): Promis
 }
 
 /** Revoke a single device session without affecting the account's other sessions. */
-export function revokeSession(sessionId: string) {
-  return db.session.deleteMany({ where: { id: sessionId } });
+export async function revokeSession(sessionId: string) {
+  const result = await db.session.deleteMany({ where: { id: sessionId } });
+  notifySessionRevoked(sessionId);
+  return result;
 }
 
 /** Serialize account-wide revocation with session creation to avoid partial logout. */
-export function revokeAllSessions(userId: string) {
-  return db.$transaction(async tx => {
+export async function revokeAllSessions(userId: string) {
+  await db.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
     await tx.session.deleteMany({ where: { userId } });
   });
+  notifyUserRevoked(userId);
 }

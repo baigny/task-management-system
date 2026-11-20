@@ -11,6 +11,7 @@ through comment threads and protected attachments.
 - Multiple comment threads per task, with direct replies.
 - Protected JPG, JPEG, PNG, and PDF attachments up to 10 MB.
 - Soft deletion, restoration, activity history, and permanent-deletion cascades.
+- Persisted notifications, unread controls, and authenticated SSE replay.
 
 ## Tech stack
 
@@ -186,6 +187,23 @@ Removed members and deleted projects are excluded from every inbox/read query.
 Hidden tasks expose only their deletion notice; task/project purge cascades notices.
 Messages use current authorized context without storing comment/file contents.
 
+### Live notifications (SSE)
+
+```sh
+curl -N http://localhost:3000/api/v1/notifications/stream \
+  -H 'Authorization: Bearer <token>' -H 'Last-Event-ID: 0'
+```
+
+The stream emits `event: notification`, `id: <notificationId>`, and a JSON `data`
+payload. Reconnect with the last received ID to replay missed accessible notices;
+deduplicate by ID. Delivery does not mark notices read. Notifications are polled in
+batches of 100 every two seconds, with heartbeat comments every 15 seconds.
+Streams close on JWT expiry, logout, or password reset/change. External database
+revocations are detected at the next poll. Limits are five streams per account and
+200 per API instance; stalled consumers are disconnected after five seconds.
+Use the bearer header, never URL tokens. Refetch the REST inbox after membership
+or project restoration to discover older notices that were previously inaccessible.
+
 ### Error responses
 
 Errors use `{ "error": { "code": "...", "message": "..." } }`; validation errors
@@ -230,6 +248,7 @@ src/
   tasks/         Task CRUD, discovery, assignment, and lifecycle
   comments/      Threads and replies
   attachments/   Uploads, downloads, private storage, and cleanup
+  notifications/ Inbox, read controls, transactional notices, and SSE
   app.ts         Express middleware and route registration
   access.ts      Shared project authorization and transactions
   openapi.ts     API schemas and endpoint metadata
@@ -243,4 +262,4 @@ scripts/         Documentation and test tooling
 
 The application is API-only and uses one API instance for local-file storage and
 cleanup. Invitation tokens are shared manually; invitation email delivery is not
-included. SSE and Gemini assistance are not implemented yet.
+included. Gemini assistance is not implemented yet. SSE uses the same single API instance.

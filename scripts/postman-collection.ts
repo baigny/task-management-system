@@ -14,9 +14,13 @@ export function postmanCollection() {
           url: '{{baseUrl}}' + operation.path.replace(/\{(\w+)\}/g, '{{$1}}') + (query ? `?${query}` : ''),
           auth: operation.auth === false ? { type: 'noauth' } : { type: 'bearer', bearer: [{ key: 'token', value: '{{token}}', type: 'string' }] },
           description: operation.description ?? operation.summary,
+          header: [
+            ...(operation.headers ?? []).map(header => ({ key: header.name, value: header.example ?? '', type: 'text' })),
+            ...(operation.body && operation.requestContentType !== 'multipart/form-data' ? [{ key: 'Content-Type', value: 'application/json' }] : []),
+          ],
           ...(operation.body ? operation.requestContentType === 'multipart/form-data'
             ? { body: { mode: 'formdata', formdata: [{ key: 'file', type: 'file', src: '' }] } }
-            : { header: [{ key: 'Content-Type', value: 'application/json' }], body: { mode: 'raw', raw: JSON.stringify(operation.example ?? {}, null, 2), options: { raw: { language: 'json' } } } }
+            : { body: { mode: 'raw', raw: JSON.stringify(operation.example ?? {}, null, 2), options: { raw: { language: 'json' } } } }
             : {}),
         },
         event: [{ listen: 'test', script: { type: 'text/javascript', exec: [

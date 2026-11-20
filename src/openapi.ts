@@ -9,6 +9,7 @@ export type Operation = {
   body?: string; bodyRequired?: boolean; example?: Record<string, unknown>; response?: string;
   requestContentType?: string; responseContentType?: string; responseContentTypes?: string[];
   query?: { name: string; schema: Schema; example?: string; description?: string }[];
+  headers?: { name: string; schema: Schema; example?: string; description?: string }[];
   save?: { variable: string; path: string }[];
 };
 /** Reference a reusable request or response schema. */
@@ -16,6 +17,7 @@ export const ref = (name: string): OpenAPIV3.ReferenceObject => ({ $ref: `#/comp
 /** Describe closed objects, omitting the OpenAPI required list for entirely optional fields. */
 export const object = (properties: Record<string, Schema>, required = Object.keys(properties)): OpenAPIV3.SchemaObject => ({ type: 'object', properties, ...(required.length ? { required } : {}), additionalProperties: false });
 export const schemas: Record<string, Schema> = {
+  NotificationStream: { type: 'string', description: 'UTF-8 SSE: id is the notification ID, event is notification, data is a Notification JSON object. Heartbeats are comment frames; stream-error signals a retryable database failure.' },
   Notification: object({ id: { type: 'integer' }, userId: { type: 'string', format: 'uuid' }, actorId: { type: 'string', format: 'uuid', nullable: true }, projectId: { type: 'string', format: 'uuid' }, taskId: { type: 'string', format: 'uuid' }, type: { type: 'string', enum: ['TASK_ASSIGNED', 'TASK_UNASSIGNED', 'TASK_UPDATED', 'TASK_DELETED', 'TASK_RESTORED', 'COMMENT_ADDED', 'COMMENT_REPLIED', 'ATTACHMENT_ADDED', 'ATTACHMENT_DELETED'] }, metadata: { type: 'object', additionalProperties: true }, createdAt: { type: 'string', format: 'date-time' }, readAt: { type: 'string', format: 'date-time', nullable: true }, message: { type: 'string' }, actor: { type: 'object', nullable: true, properties: { id: { type: 'string', format: 'uuid' }, name: { type: 'string' } }, required: ['id', 'name'], additionalProperties: false }, project: object({ id: { type: 'string', format: 'uuid' }, name: { type: 'string' } }), task: object({ id: { type: 'string', format: 'uuid' }, title: { type: 'string' }, status: ref('TaskStatus'), deletedAt: { type: 'string', format: 'date-time', nullable: true } }) }),
   NotificationList: object({ items: { type: 'array', items: ref('Notification') }, total: { type: 'integer' }, unreadCount: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' } }),
   UnreadCount: object({ unreadCount: { type: 'integer' } }),
@@ -84,6 +86,7 @@ export const activityParameters: NonNullable<Operation['query']> = [...pageParam
   { name: 'action', schema: { type: 'string', enum: [...activityActions] } },
   { name: 'actorId', schema: { type: 'string', format: 'uuid' } }];
 export const operations: Operation[] = [
+  { method: 'get', path: '/api/v1/notifications/stream', summary: 'Stream live notifications', response: 'NotificationStream', responseContentType: 'text/event-stream', headers: [{ name: 'Last-Event-ID', schema: { type: 'integer', minimum: 0, maximum: 2147483647 }, example: '0', description: 'Replay accessible persisted notifications after this ID; omitted/zero starts from the beginning.' }], description: 'Bearer authentication only; URL tokens and query fields are rejected. Polls committed notifications in batches of 100 every two seconds with current membership checks; heartbeats every 15 seconds and retry hint 3000 ms. Reconnect using the last received event ID; clients deduplicate by ID. IDs are allocated in commit order to prevent replay gaps. Local logout/password changes close streams immediately; database revocations are detected on the next poll. JWT expiry closes the stream at its deadline. Maximum five streams per account and 200 per API instance; slow consumers are disconnected after five seconds without a drain. SSE does not mark notices read. After membership/project restoration, refetch the REST inbox for older newly accessible notices.' },
   { method: 'get', path: '/api/v1/notifications', summary: 'List notification inbox', response: 'NotificationList', query: [...pageParameters, { name: 'unread', schema: { type: 'string', enum: ['true', 'false'] } }, { name: 'projectId', schema: { type: 'string', format: 'uuid' } }], description: 'Recipient-only, newest ID first. Includes readable messages, public actor, current project/task context, and accessible unread count. Current membership and active project required. Soft-deleted tasks expose only deletion notices. Unread count ignores the read/unread filter but respects projectId. No-op edits and self-notifications are suppressed. Notifications persist in the originating transaction and cascade on task/project purge.' },
   { method: 'get', path: '/api/v1/notifications/unread-count', summary: 'Count unread notifications', response: 'UnreadCount', description: 'Counts only the authenticated recipient notices accessible under current membership and lifecycle rules.' },
   { method: 'patch', path: '/api/v1/notifications/{notificationId}/read', summary: 'Mark notification read', response: 'Notification', description: 'Recipient only. Missing, other-recipient, or inaccessible notices return 404. Repeated/concurrent reads preserve the first readAt timestamp.' },
@@ -149,6 +152,7 @@ function createPaths() {
     const parameters: OpenAPIV3.ParameterObject[] = [
       ...[...operation.path.matchAll(/\{(\w+)\}/g)].map<OpenAPIV3.ParameterObject>(match => ({ name: match[1], in: 'path', required: true, schema: match[1] === 'notificationId' ? { type: 'integer', minimum: 1 } : { type: 'string', format: 'uuid' } })),
       ...(operation.query ?? []).map<OpenAPIV3.ParameterObject>(query => ({ name: query.name, in: 'query', required: false, description: query.description, schema: query.schema })),
+      ...(operation.headers ?? []).map<OpenAPIV3.ParameterObject>(header => ({ name: header.name, in: 'header', required: false, description: header.description, schema: header.schema, example: header.example })),
     ];
     const path = paths[operation.path] ??= {};
     path[operation.method] = {

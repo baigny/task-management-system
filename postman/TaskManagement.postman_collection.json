@@ -11,6 +11,42 @@
   ],
   "item": [
     {
+      "name": "Stream live notifications",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/notifications/stream",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Bearer authentication only; URL tokens and query fields are rejected. Polls committed notifications in batches of 100 every two seconds with current membership checks; heartbeats every 15 seconds and retry hint 3000 ms. Reconnect using the last received event ID; clients deduplicate by ID. IDs are allocated in commit order to prevent replay gaps. Local logout/password changes close streams immediately; database revocations are detected on the next poll. JWT expiry closes the stream at its deadline. Maximum five streams per account and 200 per API instance; slow consumers are disconnected after five seconds without a drain. SSE does not mark notices read. After membership/project restoration, refetch the REST inbox for older newly accessible notices.",
+        "header": [
+          {
+            "key": "Last-Event-ID",
+            "value": "0",
+            "type": "text"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "List notification inbox",
       "request": {
         "method": "GET",
@@ -25,7 +61,8 @@
             }
           ]
         },
-        "description": "Recipient-only, newest ID first. Includes readable messages, public actor, current project/task context, and accessible unread count. Current membership and active project required. Soft-deleted tasks expose only deletion notices. Unread count ignores the read/unread filter but respects projectId. No-op edits and self-notifications are suppressed. Notifications persist in the originating transaction and cascade on task/project purge."
+        "description": "Recipient-only, newest ID first. Includes readable messages, public actor, current project/task context, and accessible unread count. Current membership and active project required. Soft-deleted tasks expose only deletion notices. Unread count ignores the read/unread filter but respects projectId. No-op edits and self-notifications are suppressed. Notifications persist in the originating transaction and cascade on task/project purge.",
+        "header": []
       },
       "event": [
         {
@@ -54,7 +91,8 @@
             }
           ]
         },
-        "description": "Counts only the authenticated recipient notices accessible under current membership and lifecycle rules."
+        "description": "Counts only the authenticated recipient notices accessible under current membership and lifecycle rules.",
+        "header": []
       },
       "event": [
         {
@@ -83,7 +121,8 @@
             }
           ]
         },
-        "description": "Recipient only. Missing, other-recipient, or inaccessible notices return 404. Repeated/concurrent reads preserve the first readAt timestamp."
+        "description": "Recipient only. Missing, other-recipient, or inaccessible notices return 404. Repeated/concurrent reads preserve the first readAt timestamp.",
+        "header": []
       },
       "event": [
         {
@@ -156,7 +195,8 @@
             }
           ]
         },
-        "description": "Current members can inspect active tasks; only owners can inspect task/project trash. Includes task, assignment, comment, and attachment events with public actor names. Read-only, paginated, newest first with ID ascending ties. Filter by action or actorId. Purged tasks return 404; their project history remains."
+        "description": "Current members can inspect active tasks; only owners can inspect task/project trash. Includes task, assignment, comment, and attachment events with public actor names. Read-only, paginated, newest first with ID ascending ties. Filter by action or actorId. Purged tasks return 404; their project history remains.",
+        "header": []
       },
       "event": [
         {
@@ -186,6 +226,7 @@
           ]
         },
         "description": "Current members only, active task/project required. Send one multipart file field named file with no extra fields. Only .pdf, .png, .jpg, .jpeg with matching media type and signature; maximum 10 MB (10485760 bytes). Text and other formats are rejected with 415. Limited to 30 upload requests per IP per 15 minutes. Access is checked before upload and again before persistence. Metadata and activity commit atomically; generated storage paths remain private.",
+        "header": [],
         "body": {
           "mode": "formdata",
           "formdata": [
@@ -228,7 +269,8 @@
             }
           ]
         },
-        "description": "Current members only. Paginated metadata in chronological order with stable ID ties. Storage keys and filesystem paths are never returned."
+        "description": "Current members only. Paginated metadata in chronological order with stable ID ties. Storage keys and filesystem paths are never returned.",
+        "header": []
       },
       "event": [
         {
@@ -257,7 +299,8 @@
             }
           ]
         },
-        "description": "Requires a valid bearer session and current project membership on every request. Sends the stored media type, Content-Disposition attachment, Content-Length, no-store, and nosniff. No public download URLs. Cross-task IDs and hidden tasks/projects return 404. Authorization is evaluated when opening the stream."
+        "description": "Requires a valid bearer session and current project membership on every request. Sends the stored media type, Content-Disposition attachment, Content-Length, no-store, and nosniff. No public download URLs. Cross-task IDs and hidden tasks/projects return 404. Authorization is evaluated when opening the stream.",
+        "header": []
       },
       "event": [
         {
@@ -286,7 +329,8 @@
             }
           ]
         },
-        "description": "Current uploader or project owner only. Removes metadata immediately and atomically queues durable physical deletion with activity. The worker retries failures every minute. Task/project permanent purges also queue their files before cascading metadata deletion. Soft deletion keeps files for restoration."
+        "description": "Current uploader or project owner only. Removes metadata immediately and atomically queues durable physical deletion with activity. The worker retries failures every minute. Task/project permanent purges also queue their files before cascading metadata deletion. Soft deletion keeps files for restoration.",
+        "header": []
       },
       "event": [
         {
@@ -363,7 +407,8 @@
             }
           ]
         },
-        "description": "Lists roots chronologically with stable ID ties, public author profiles, and reply counts. Replies are paginated separately. Deleted text is null with deletedAt set; thread structure remains."
+        "description": "Lists roots chronologically with stable ID ties, public author profiles, and reply counts. Replies are paginated separately. Deleted text is null with deletedAt set; thread structure remains.",
+        "header": []
       },
       "event": [
         {
@@ -392,7 +437,8 @@
             }
           ]
         },
-        "description": "Current members only. commentId must be a root in this task. Returns chronological, paginated direct replies, including deletion placeholders."
+        "description": "Current members only. commentId must be a root in this task. Returns chronological, paginated direct replies, including deletion placeholders.",
+        "header": []
       },
       "event": [
         {
@@ -421,7 +467,8 @@
             }
           ]
         },
-        "description": "Current author or project owner only. Clears text and records deletedAt without removing replies. Repeated authorized deletion returns 204. Project/task purge cascades all comments and replies."
+        "description": "Current author or project owner only. Clears text and records deletedAt without removing replies. Repeated authorized deletion returns 204. Project/task purge cascades all comments and replies.",
+        "header": []
       },
       "event": [
         {
@@ -443,7 +490,8 @@
         "auth": {
           "type": "noauth"
         },
-        "description": "Checks the HTTP process independently of PostgreSQL."
+        "description": "Checks the HTTP process independently of PostgreSQL.",
+        "header": []
       },
       "event": [
         {
@@ -465,7 +513,8 @@
         "auth": {
           "type": "noauth"
         },
-        "description": "Queries PostgreSQL. Returns DATABASE_UNAVAILABLE when the database cannot be reached."
+        "description": "Queries PostgreSQL. Returns DATABASE_UNAVAILABLE when the database cannot be reached.",
+        "header": []
       },
       "event": [
         {
@@ -578,7 +627,8 @@
             }
           ]
         },
-        "description": "Returns the authenticated account profile without credentials. Response is not cached."
+        "description": "Returns the authenticated account profile without credentials. Response is not cached.",
+        "header": []
       },
       "event": [
         {
@@ -651,7 +701,8 @@
             }
           ]
         },
-        "description": "Immediately revokes the supplied session. Other devices stay logged in; login throttling does not block logout."
+        "description": "Immediately revokes the supplied session. Other devices stay logged in; login throttling does not block logout.",
+        "header": []
       },
       "event": [
         {
@@ -680,7 +731,8 @@
             }
           ]
         },
-        "description": "Revokes all of the authenticated account sessions, including the supplied token."
+        "description": "Revokes all of the authenticated account sessions, including the supplied token.",
+        "header": []
       },
       "event": [
         {
@@ -875,7 +927,8 @@
             }
           ]
         },
-        "description": "Lists active projects the caller belongs to, newest first with an ID tie-breaker. deleted=true lists only the caller-owned deleted projects."
+        "description": "Lists active projects the caller belongs to, newest first with an ID tie-breaker. deleted=true lists only the caller-owned deleted projects.",
+        "header": []
       },
       "event": [
         {
@@ -904,7 +957,8 @@
             }
           ]
         },
-        "description": "Members only. Nonmembers receive 404."
+        "description": "Members only. Nonmembers receive 404.",
+        "header": []
       },
       "event": [
         {
@@ -977,7 +1031,8 @@
             }
           ]
         },
-        "description": "Owner only. Keeps memberships and history; deleted projects are hidden from ordinary reads and collaboration."
+        "description": "Owner only. Keeps memberships and history; deleted projects are hidden from ordinary reads and collaboration.",
+        "header": []
       },
       "event": [
         {
@@ -1006,7 +1061,8 @@
             }
           ]
         },
-        "description": "Owner only. Restores a deleted project and preserves memberships. Already active projects return 409."
+        "description": "Owner only. Restores a deleted project and preserves memberships. Already active projects return 409.",
+        "header": []
       },
       "event": [
         {
@@ -1035,7 +1091,8 @@
             }
           ]
         },
-        "description": "Owner only. Requires prior soft deletion. Irreversibly removes the project, memberships, and project activity."
+        "description": "Owner only. Requires prior soft deletion. Irreversibly removes the project, memberships, and project activity.",
+        "header": []
       },
       "event": [
         {
@@ -1064,7 +1121,8 @@
             }
           ]
         },
-        "description": "Members can inspect active project history. Only the owner can inspect a deleted project. Changes and history entries are atomic; update records contain changed field names rather than field contents."
+        "description": "Members can inspect active project history. Only the owner can inspect a deleted project. Changes and history entries are atomic; update records contain changed field names rather than field contents.",
+        "header": []
       },
       "event": [
         {
@@ -1142,7 +1200,8 @@
             }
           ]
         },
-        "description": "Owner only. Lists invitation state without secrets or token hashes."
+        "description": "Owner only. Lists invitation state without secrets or token hashes.",
+        "header": []
       },
       "event": [
         {
@@ -1171,7 +1230,8 @@
             }
           ]
         },
-        "description": "Owner only. Revokes an unused invitation. Repeated revocation is harmless; accepted invitations return 409."
+        "description": "Owner only. Revokes an unused invitation. Repeated revocation is harmless; accepted invitations return 409.",
+        "header": []
       },
       "event": [
         {
@@ -1244,7 +1304,8 @@
             }
           ]
         },
-        "description": "Members only. Returns public profiles and roles scoped to this project; credentials and session fields are excluded."
+        "description": "Members only. Returns public profiles and roles scoped to this project; credentials and session fields are excluded.",
+        "header": []
       },
       "event": [
         {
@@ -1453,7 +1514,8 @@
             }
           ]
         },
-        "description": "Members can list active tasks; deleted=true requires the owner. Supports status/assignee filters, literal title-description search, pagination, and allowlisted sorting. Due dates sort with nulls last; ID breaks ties. Unknown query fields are rejected."
+        "description": "Members can list active tasks; deleted=true requires the owner. Supports status/assignee filters, literal title-description search, pagination, and allowlisted sorting. Due dates sort with nulls last; ID breaks ties. Unknown query fields are rejected.",
+        "header": []
       },
       "event": [
         {
@@ -1482,7 +1544,8 @@
             }
           ]
         },
-        "description": "Current members only. Missing tasks, tasks in another project, and deleted tasks/projects return 404."
+        "description": "Current members only. Missing tasks, tasks in another project, and deleted tasks/projects return 404.",
+        "header": []
       },
       "event": [
         {
@@ -1511,7 +1574,8 @@
             }
           ]
         },
-        "description": "Lists tasks only across current memberships in active projects. Use assigneeId=me for assigned-to-me, a UUID for a specific assignee, or unassigned. An inaccessible project filter returns an empty list. Search treats percent, underscore, and backslash literally."
+        "description": "Lists tasks only across current memberships in active projects. Use assigneeId=me for assigned-to-me, a UUID for a specific assignee, or unassigned. An inaccessible project filter returns an empty list. Search treats percent, underscore, and backslash literally.",
+        "header": []
       },
       "event": [
         {
@@ -1584,7 +1648,8 @@
             }
           ]
         },
-        "description": "Any current member may soft-delete an active task. Records deletion actor/time and activity; normal reads hide it. Repeated deletion returns 404. Restoring and permanent deletion are owner-only."
+        "description": "Any current member may soft-delete an active task. Records deletion actor/time and activity; normal reads hide it. Repeated deletion returns 404. Restoring and permanent deletion are owner-only.",
+        "header": []
       },
       "event": [
         {
@@ -1613,7 +1678,8 @@
             }
           ]
         },
-        "description": "Owner only. Requires a deleted task in an active project. Keeps status and other fields. If the historical assignee has left, selects a replacement using the same workload rule as member removal and records the old/new assignment. Unassigned tasks stay unassigned. Active tasks return 409."
+        "description": "Owner only. Requires a deleted task in an active project. Keeps status and other fields. If the historical assignee has left, selects a replacement using the same workload rule as member removal and records the old/new assignment. Unassigned tasks stay unassigned. Active tasks return 409.",
+        "header": []
       },
       "event": [
         {
@@ -1642,7 +1708,8 @@
             }
           ]
         },
-        "description": "Owner only. Requires prior soft deletion; active tasks return 409. Permanently removes the task and keeps its TASK_PURGED project activity record."
+        "description": "Owner only. Requires prior soft deletion; active tasks return 409. Permanently removes the task and keeps its TASK_PURGED project activity record.",
+        "header": []
       },
       "event": [
         {
