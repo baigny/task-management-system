@@ -3,8 +3,6 @@
 Collaborative task management REST API built with Express, TypeScript, and PostgreSQL.
 
 Development takes place on `feat-task-management`, branched from `main`.
-See the [implementation tracker](docs/IMPLEMENTATION_TRACKER.md) for brief coverage,
-remaining work, and code review decisions.
 
 ## Local setup
 
@@ -29,6 +27,11 @@ The workflow pins [checkout v7.0.1](https://github.com/actions/checkout/releases
 and [setup-node v7.1.0](https://github.com/actions/setup-node/releases/tag/v7.1.0) to
 immutable commits, uses their Node.js 24 runtime, and does not persist checkout credentials.
 Dependencies and database models are introduced with the features that use them.
+
+The API removes expired sessions and password-reset tokens on startup and every
+15 minutes. Throttle records are retained for 24 hours, beyond their 15-minute
+enforcement window. Each run deletes at most 500 rows per table; larger backlogs
+drain over subsequent runs. Cleanup failures are logged and retried next run.
 
 ## HTTP API
 
