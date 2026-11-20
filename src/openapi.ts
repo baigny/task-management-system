@@ -29,6 +29,11 @@ export const schemas: Record<string, Schema> = {
   ProjectList: object({ items: { type: 'array', items: ref('Project') }, total: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' } }),
   ProjectUpdate: { ...object({ name: { type: 'string', minLength: 1, maxLength: 100 }, description: { type: 'string', maxLength: 5000 } }, []), minProperties: 1 },
   ActivityList: object({ items: { type: 'array', items: object({ id: { type: 'string', format: 'uuid' }, projectId: { type: 'string', format: 'uuid' }, actorId: { type: 'string', format: 'uuid', nullable: true }, action: { type: 'string' }, entityId: { type: 'string', nullable: true }, metadata: { type: 'object', additionalProperties: true }, createdAt: { type: 'string', format: 'date-time' } }) }, total: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' } }),
+  Invitation: object({ id: { type: 'string', format: 'uuid' }, projectId: { type: 'string', format: 'uuid' }, email: { type: 'string', format: 'email' }, invitedById: { type: 'string', format: 'uuid' }, expiresAt: { type: 'string', format: 'date-time' }, createdAt: { type: 'string', format: 'date-time' }, acceptedAt: { type: 'string', format: 'date-time', nullable: true }, revokedAt: { type: 'string', format: 'date-time', nullable: true } }),
+  InvitationInput: object({ email: { type: 'string', format: 'email', maxLength: 254 } }),
+  InvitationResult: object({ invitation: ref('Invitation'), token: { type: 'string', writeOnly: false, description: 'Returned only at issuance; share securely with the invited account.' } }),
+  InvitationAcceptance: object({ token: { type: 'string', pattern: '^[a-f0-9]{64}$', writeOnly: true } }),
+  InvitationList: object({ items: { type: 'array', items: ref('Invitation') }, total: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' } }),
   ProjectInput: object({ name: { type: 'string', minLength: 1, maxLength: 100 }, description: { type: 'string', maxLength: 5000, default: '' } }, ['name']),
 };
 
@@ -58,6 +63,10 @@ export const operations: Operation[] = [
   { method: 'post', path: '/api/v1/projects/{projectId}/restore', summary: 'Restore project', response: 'Project', description: 'Owner only. Restores a deleted project and preserves memberships. Already active projects return 409.' },
   { method: 'delete', path: '/api/v1/projects/{projectId}/permanent', summary: 'Permanently delete project', status: 204, description: 'Owner only. Requires prior soft deletion. Irreversibly removes the project, memberships, and project activity.' },
   { method: 'get', path: '/api/v1/projects/{projectId}/activity', summary: 'List project activity', response: 'ActivityList', query: pageParameters, description: 'Members can inspect active project history. Only the owner can inspect a deleted project. Changes and history entries are atomic; update records contain changed field names rather than field contents.' },
+  { method: 'post', path: '/api/v1/projects/{projectId}/invitations', summary: 'Invite project member', status: 201, body: 'InvitationInput', response: 'InvitationResult', example: { email: 'teammate@example.com' }, save: [{ variable: 'invitationToken', path: 'token' }, { variable: 'invitationId', path: 'invitation.id' }], description: 'Owner only. Returns a seven-day single-use token bound to the normalized email. Reissuing replaces earlier tokens for this project/email. Existing members return 409. No outbound email is sent.' },
+  { method: 'get', path: '/api/v1/projects/{projectId}/invitations', summary: 'List project invitations', response: 'InvitationList', query: pageParameters, description: 'Owner only. Lists invitation state without secrets or token hashes.' },
+  { method: 'delete', path: '/api/v1/projects/{projectId}/invitations/{invitationId}', summary: 'Revoke invitation', status: 204, description: 'Owner only. Revokes an unused invitation. Repeated revocation is harmless; accepted invitations return 409.' },
+  { method: 'post', path: '/api/v1/invitations/accept', summary: 'Accept project invitation', body: 'InvitationAcceptance', response: 'Project', example: { token: '{{invitationToken}}' }, description: 'Authenticate as the invited email account. Invalid, expired, revoked, replaced, reused, and wrong-account tokens return the same 400. Joining a deleted project is forbidden. Creates membership and activity atomically. Limited to 30 attempts per IP per 15 minutes.' },
 ];
 
 /** Publish explicit success/error schemas and parameters for every documented endpoint. */

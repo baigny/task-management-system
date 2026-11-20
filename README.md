@@ -189,3 +189,26 @@ only owners may inspect deleted projects. Creation, updates, soft deletion, and
 restoration append activity in the same transaction as the change. Update history
 records field names without copying description contents. History begins when this
 feature is installed; existing projects do not receive fabricated past events.
+
+## Invitations and joining projects
+
+1. As the project owner, call `POST /api/v1/projects/{projectId}/invitations` with
+   `{ "email": "teammate@example.com" }`. The response contains `invitation` and
+   `token`; Postman stores `invitationToken` and `invitationId`.
+2. Share the token securely. It expires after seven days and is bound to that
+   normalized email. No invitation email service is required. Only its hash is stored.
+3. The invitee registers or logs in with that email, then calls
+   `POST /api/v1/invitations/accept` with `{ "token": "<shared token>" }` and their
+   bearer token. Acceptance creates membership once, without changing ownership.
+   A user can join multiple projects.
+
+Owners can page through `GET /api/v1/projects/{projectId}/invitations` or revoke an
+unused invitation with `DELETE /api/v1/projects/{projectId}/invitations/{invitationId}`.
+Reissuing for the same project/email replaces the old token. Accepted invitations
+cannot be revoked; membership changes are separate operations. Deleted projects
+cannot issue or accept invitations. Permanent project deletion cascades invitations.
+
+Tokens are never included in invitation lists, logs, or activity metadata. Invalid,
+expired, revoked, replaced, reused, and wrong-account tokens share a 400 response.
+Acceptance permits 30 attempts per IP per 15 minutes. Membership changes and activity
+entries commit together under the project lock, including concurrent acceptance.

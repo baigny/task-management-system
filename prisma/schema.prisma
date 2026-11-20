@@ -21,6 +21,7 @@ model User {
   memberships Membership[]
   deletedProjects Project[] @relation("ProjectDeletedBy")
   activities Activity[]
+  sentInvitations Invitation[]
 }
 
 model Session {
@@ -61,6 +62,7 @@ model Project {
   deletedById String?
   deletedBy User? @relation("ProjectDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
   activities Activity[]
+  invitations Invitation[]
   @@index([ownerId])
   @@index([deletedAt, createdAt])
 }
@@ -86,4 +88,20 @@ model Activity {
   metadata Json @default("{}")
   createdAt DateTime @default(now())
   @@index([projectId, createdAt, id])
+}
+
+model Invitation {
+  id String @id @default(uuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  email String
+  invitedById String
+  invitedBy User @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+  tokenHash String @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  acceptedAt DateTime?
+  revokedAt DateTime?
+  @@unique([projectId, email])
+  @@index([projectId, createdAt])
 }
