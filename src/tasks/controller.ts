@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { getAuth } from '../auth/middleware.js';
 import { id } from '../validation.js';
 import { readTask as read, listProjectTasks as list, discoverTasks as discover } from './read.js';
-import { taskInput, taskListQuery, taskDiscoveryQuery } from './validation.js';
+import { taskInput, taskUpdate, taskListQuery, taskDiscoveryQuery } from './validation.js';
 import * as tasks from './service.js';
 
 /** Validate task fields and bind project and creator identifiers to the authenticated request. */
@@ -23,4 +23,9 @@ export async function listProjectTasks(req: Request, res: Response) {
 /** Validate cross-project discovery filters, taking the account ID from the session. */
 export async function discoverTasks(req: Request, res: Response) {
   res.json(await discover(getAuth(req).userId, taskDiscoveryQuery.parse(req.query)));
+}
+
+/** Validate a nonempty partial update while keeping project, creator, and deletion fields protected. */
+export async function updateTask(req: Request, res: Response) {
+  res.json(await tasks.updateTask(id.parse(req.params.projectId), getAuth(req).userId, id.parse(req.params.taskId), taskUpdate.parse(req.body)));
 }

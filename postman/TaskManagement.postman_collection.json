@@ -1099,6 +1099,50 @@
           }
         }
       ]
+    },
+    {
+      "name": "Update project task",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Any current member can edit task details/status or assign a current member. Null assigneeId unassigns and null dueDate clears the deadline. At least one supported field is required; omitted fields stay unchanged. Protected identifiers/deletion fields are rejected. No-op edits preserve updatedAt and add no activity. Updates, assignment history, and membership coordination are transactional. Deleted tasks/projects return 404.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"COMPLETED\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

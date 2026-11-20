@@ -1,18 +1,43 @@
 import type { Task } from '@prisma/client';
 import { inProject } from '../access.js';
 import { recordActivity } from '../activity.js';
-import { ApiError } from '../errors.js';
-import type { TaskInput } from './validation.js';
+import { validateAssignee } from './assignment.js';
+import { requireActiveTask } from './access.js';
+import type { TaskInput, TaskUpdate } from './validation.js';
 
 /** Create a task only within an active project and validate its optional assignee under the same lock. */
 export function createTask(projectId: string, userId: string, input: TaskInput): Promise<Task> {
   return inProject(projectId, userId, async tx => {
-    if (input.assigneeId) {
-      const assignee = await tx.membership.findUnique({ where: { projectId_userId: { projectId, userId: input.assigneeId } } });
-      if (!assignee) throw new ApiError(400, 'INVALID_ASSIGNEE', 'Assignee must belong to this project');
-    }
+    await validateAssignee(tx, projectId, input.assigneeId);
     const task = await tx.task.create({ data: { ...input, projectId, createdById: userId } });
     await recordActivity(tx, projectId, userId, 'TASK_CREATED', task.id, { status: task.status, assigneeId: task.assigneeId });
     return task;
+  });
+}
+
+/** Identify actual changes using typed editable fields and compare due dates by instant. */
+function changedFields(task: Task, input: TaskUpdate) {
+  const editable = ['title', 'description', 'dueDate', 'status', 'assigneeId'] as const;
+  return editable.filter(field => {
+    const next = input[field];
+    if (next === undefined) return false;
+    const previous = task[field];
+    return next instanceof Date ? !(previous instanceof Date) || next.getTime() !== previous.getTime() : next !== previous;
+  });
+}
+
+/** Update only supplied fields and record meaningful edits and assignment changes atomically. */
+export function updateTask(projectId: string, userId: string, taskId: string, input: TaskUpdate): Promise<Task> {
+  return inProject(projectId, userId, async tx => {
+    const task = await requireActiveTask(tx, projectId, taskId);
+    await validateAssignee(tx, projectId, input.assigneeId);
+    const fields = changedFields(task, input);
+    if (!fields.length) return task;
+    const updated = await tx.task.update({ where: { id: task.id }, data: input });
+    await recordActivity(tx, projectId, userId, 'TASK_UPDATED', task.id, { fields });
+    if (updated.assigneeId !== task.assigneeId) {
+      await recordActivity(tx, projectId, userId, 'TASK_REASSIGNED', task.id, { previousAssigneeId: task.assigneeId, assigneeId: updated.assigneeId, reason: 'TASK_UPDATE' });
+    }
+    return updated;
   });
 }

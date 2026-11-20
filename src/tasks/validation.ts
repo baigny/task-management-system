@@ -2,13 +2,18 @@ import { TaskStatus } from '@prisma/client';
 import { z } from 'zod';
 import { id, pagination } from '../validation.js';
 
-export const taskInput = z.object({
+const taskFields = {
   title: z.string().trim().min(1).max(200),
-  description: z.string().max(10000).default(''),
+  description: z.string().max(10000),
   dueDate: z.iso.datetime({ offset: true }).transform(value => new Date(value)).nullable().optional(),
-  status: z.enum(TaskStatus).default(TaskStatus.OPEN),
+  status: z.enum(TaskStatus),
   assigneeId: id.nullable().optional(),
-}).strict();
+};
+export const taskInput = z.object({ ...taskFields, description: taskFields.description.default(''), status: taskFields.status.default(TaskStatus.OPEN) }).strict();
+// Creation defaults must never reset fields omitted from a partial update.
+export const taskUpdate = z.object(taskFields).partial().strict()
+  .refine(value => Object.keys(value).length > 0, 'At least one task field is required');
+export type TaskUpdate = z.output<typeof taskUpdate>;
 
 export type TaskInput = z.output<typeof taskInput>;
 

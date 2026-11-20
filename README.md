@@ -327,3 +327,28 @@ Pagination defaults to page 1 and limit 20 (maximum 100) and returns `items`, `t
 hidden, including from assigned-to-me results. An inaccessible project filter on
 cross-project discovery returns an empty list; direct resource access returns 404.
 Postman's discovery example defaults to `assigneeId=me`.
+
+## Updating and completing tasks
+
+Any current project member can call
+`PATCH /api/v1/projects/{projectId}/tasks/{taskId}` with at least one of `title`,
+`description`, `dueDate`, `status`, or `assigneeId`:
+
+```json
+{ "status": "COMPLETED" }
+```
+
+```json
+{ "assigneeId": "<current member UUID>", "dueDate": null }
+```
+
+Omitted fields stay unchanged. Set `assigneeId: null` to unassign, `dueDate: null`
+to clear the deadline, or `description: ""` to clear the description. Creation
+validation limits also apply to updates. Project/creator/deletion fields cannot be
+changed through this endpoint. Tasks and projects in trash return 404.
+
+Edits and assignment activity commit together. No-op updates preserve `updatedAt`
+and create no activity. Assignment and member removal share the project lock, so
+unfinished tasks cannot end up assigned to a removed member. Completed historical
+assignments may remain after removal; editing unrelated fields preserves that history,
+while any explicitly supplied assignee must currently belong to the project.

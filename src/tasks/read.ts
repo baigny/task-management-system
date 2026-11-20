@@ -1,7 +1,7 @@
 import type { Prisma, Task } from '@prisma/client';
 import { db } from '../db.js';
 import { inProject } from '../access.js';
-import { ApiError } from '../errors.js';
+import { requireActiveTask } from './access.js';
 import { pageArgs, type Page } from '../validation.js';
 import type { TaskDiscoveryQuery, TaskListQuery } from './validation.js';
 
@@ -23,11 +23,7 @@ function taskOrder(query: TaskListQuery): Prisma.TaskOrderByWithRelationInput[] 
 
 /** Read one non-deleted task only within the authenticated member's active project. */
 export function readTask(projectId: string, userId: string, taskId: string): Promise<Task> {
-  return inProject(projectId, userId, async tx => {
-    const task = await tx.task.findFirst({ where: { id: taskId, projectId, deletedAt: null } });
-    if (!task) throw new ApiError(404, 'NOT_FOUND', 'Task not found');
-    return task;
-  }, { mode: 'read' });
+  return inProject(projectId, userId, tx => requireActiveTask(tx, projectId, taskId), { mode: 'read' });
 }
 
 /** List project tasks under a shared project lock so rows and count describe one state. */
