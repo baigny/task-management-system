@@ -19,6 +19,8 @@ model User {
   passwordResets PasswordReset[]
   ownedProjects Project[]
   memberships Membership[]
+  deletedProjects Project[] @relation("ProjectDeletedBy")
+  activities Activity[]
 }
 
 model Session {
@@ -55,7 +57,12 @@ model Project {
   owner       User         @relation(fields: [ownerId], references: [id])
   createdAt   DateTime     @default(now())
   memberships Membership[]
+  deletedAt DateTime?
+  deletedById String?
+  deletedBy User? @relation("ProjectDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  activities Activity[]
   @@index([ownerId])
+  @@index([deletedAt, createdAt])
 }
 
 model Membership {
@@ -66,4 +73,17 @@ model Membership {
   createdAt DateTime @default(now())
   @@id([projectId, userId])
   @@index([userId])
+}
+
+model Activity {
+  id String @id @default(uuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actorId String?
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action String
+  entityId String?
+  metadata Json @default("{}")
+  createdAt DateTime @default(now())
+  @@index([projectId, createdAt, id])
 }

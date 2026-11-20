@@ -450,7 +450,7 @@
             }
           ]
         },
-        "description": "Lists only projects the authenticated user belongs to, newest first with an ID tie-breaker."
+        "description": "Lists active projects the caller belongs to, newest first with an ID tie-breaker. deleted=true lists only the caller-owned deleted projects."
       },
       "event": [
         {
@@ -524,6 +524,122 @@
             }
           }
         }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Soft-delete project",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner only. Keeps memberships and history; deleted projects are hidden from ordinary reads and collaboration."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Restore project",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/restore",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner only. Restores a deleted project and preserves memberships. Already active projects return 409."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Permanently delete project",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/permanent",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner only. Requires prior soft deletion. Irreversibly removes the project, memberships, and project activity."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List project activity",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/activity",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Members can inspect active project history. Only the owner can inspect a deleted project. Changes and history entries are atomic; update records contain changed field names rather than field contents."
       },
       "event": [
         {

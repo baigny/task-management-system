@@ -171,3 +171,21 @@ Only the project owner can call `PATCH /api/v1/projects/{projectId}` with `name`
 `description`, or both. At least one field is required. Omitted fields retain their
 values; `description: ""` explicitly clears the description. Members receive 403,
 and nonmembers receive 404. Unknown fields, including `ownerId`, are rejected.
+
+## Project deletion and activity
+
+`DELETE /api/v1/projects/{projectId}` soft-deletes the owner's project, recording
+`deletedAt` and `deletedById`. Ordinary reads and collaboration then return 404.
+Memberships and project history remain intact. Owners can list their trash using
+`GET /api/v1/projects?deleted=true` and restore with
+`POST /api/v1/projects/{projectId}/restore`. Active projects cannot be restored again.
+
+Permanent deletion is explicit: after soft deletion, the owner can call
+`DELETE /api/v1/projects/{projectId}/permanent`. It irreversibly removes the project,
+its memberships, and activity records. Active projects cannot be purged.
+
+`GET /api/v1/projects/{projectId}/activity` returns paginated history to members;
+only owners may inspect deleted projects. Creation, updates, soft deletion, and
+restoration append activity in the same transaction as the change. Update history
+records field names without copying description contents. History begins when this
+feature is installed; existing projects do not receive fabricated past events.
