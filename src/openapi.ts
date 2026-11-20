@@ -29,6 +29,8 @@ export const operations: Operation[] = [
   { method: 'post', path: '/api/v1/auth/login', summary: 'Login', auth: false, body: 'Login', response: 'AuthResult', example: { email: 'developer@example.com', password: 'strong-password-123' }, save: [{ variable: 'token', path: 'token' }, { variable: 'userId', path: 'user.id' }], description: 'Invalid email and password share one response. After five failed attempts per account in 15 minutes, further attempts return 429. Success resets the account counter.' },
   { method: 'get', path: '/api/v1/users/me', summary: 'View profile', response: 'User', description: 'Returns the authenticated account profile without credentials. Response is not cached.' },
   { method: 'patch', path: '/api/v1/users/me', summary: 'Update profile', body: 'ProfileUpdate', response: 'User', example: { name: 'Updated Developer' }, description: 'Changes only the display name. Unknown/protected fields are rejected.' },
+  { method: 'post', path: '/api/v1/auth/logout', summary: 'Logout current device', status: 204, description: 'Immediately revokes the supplied session. Other devices stay logged in; login throttling does not block logout.' },
+  { method: 'post', path: '/api/v1/auth/logout-all', summary: 'Logout all devices', status: 204, description: 'Revokes all of the authenticated account sessions, including the supplied token.' },
 ];
 
 /** Publish explicit success/error schemas and parameters for every documented endpoint. */

@@ -110,3 +110,11 @@ Send `Authorization: Bearer <token>` to `GET /api/v1/users/me` to read your acco
 and must contain 1–100 characters. Unknown fields and changes to email, credentials,
 or roles are rejected. Responses contain only `id`, `email`, `name`, and `createdAt`
 and use `Cache-Control: no-store`. The account is always taken from the session.
+
+## Logout
+
+`POST /api/v1/auth/logout` revokes the session identified by your bearer token;
+other devices remain signed in. `POST /api/v1/auth/logout-all` revokes every session
+for the account, including the requesting device. Both return 204. Revoked tokens
+immediately fail subsequent protected requests, even before their JWT expiry.
+Login throttling does not block either logout endpoint.

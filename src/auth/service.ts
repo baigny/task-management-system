@@ -57,3 +57,16 @@ export function readProfile(userId: string) {
 export function updateProfile(userId: string, input: { name: string }) {
   return db.user.update({ where: { id: userId }, data: input, select: publicUser });
 }
+
+/** Revoke a single device session without affecting the account's other sessions. */
+export function revokeSession(sessionId: string) {
+  return db.session.deleteMany({ where: { id: sessionId } });
+}
+
+/** Serialize account-wide revocation with session creation to avoid partial logout. */
+export function revokeAllSessions(userId: string) {
+  return db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
+    await tx.session.deleteMany({ where: { userId } });
+  });
+}
