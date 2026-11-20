@@ -94,8 +94,11 @@ model Activity {
   action String
   entityId String?
   metadata Json @default("{}")
+  taskId String?
+  task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
   @@index([projectId, createdAt, id])
+  @@index([projectId, taskId, createdAt, id])
 }
 
 model Invitation {
@@ -139,6 +142,7 @@ model Task {
   deletedBy User? @relation("TaskDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
   comments Comment[]
   attachments Attachment[]
+  activities Activity[]
   @@index([projectId, deletedAt, status, assigneeId])
   @@index([assigneeId, status])
   @@index([projectId, createdAt, id])

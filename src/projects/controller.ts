@@ -1,8 +1,10 @@
 import { getAuth } from '../auth/middleware.js';
 import type { Request, Response } from 'express';
-import { id, pagination } from '../validation.js';
+import { id } from '../validation.js';
 import { projectInput, projectUpdate, projectListQuery } from './validation.js';
 import * as projects from './service.js';
+import { activityQuery } from '../history/validation.js';
+import { listHistory } from '../history/service.js';
 
 /** Validate project creation and make the authenticated account its owner. */
 export async function createProject(req: Request, res: Response) {
@@ -45,6 +47,5 @@ export async function purgeProject(req: Request, res: Response) {
 
 /** Validate pagination before reading an authorized project's activity. */
 export async function listActivity(req: Request, res: Response) {
-  const { page, limit } = pagination.parse(req.query);
-  res.json(await projects.listActivity(id.parse(req.params.projectId), getAuth(req).userId, page, limit));
+  res.json(await listHistory(id.parse(req.params.projectId), getAuth(req).userId, activityQuery.parse(req.query)));
 }

@@ -5,6 +5,13 @@ import { readTask as read, listProjectTasks as list, discoverTasks as discover }
 import { taskInput, taskUpdate, taskListQuery, taskDiscoveryQuery } from './validation.js';
 import * as tasks from './service.js';
 import * as lifecycle from './lifecycle.js';
+import { listHistory } from '../history/service.js';
+import { taskActivityQuery } from '../history/validation.js';
+
+/** List task-specific history, allowing owners to inspect task trash without restoring it. */
+export async function listTaskActivity(req: Request, res: Response) {
+  res.json(await listHistory(id.parse(req.params.projectId), getAuth(req).userId, taskActivityQuery.parse(req.query), id.parse(req.params.taskId)));
+}
 
 /** Validate task fields and bind project and creator identifiers to the authenticated request. */
 export async function createTask(req: Request, res: Response) {

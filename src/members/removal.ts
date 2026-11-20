@@ -51,7 +51,7 @@ export function removeMember(projectId: string, actorId: string, targetId: strin
         if (updated.count !== ids.length) throw new Error('Task assignments changed during member removal');
       }
     }
-    await recordActivities(tx, plan.assignments.map(assignment => ({ projectId, actorId, action: 'TASK_REASSIGNED', entityId: assignment.taskId, metadata: { previousAssigneeId: targetId, assigneeId: assignment.assigneeId, reason: 'MEMBER_REMOVAL' } })));
+    await recordActivities(tx, plan.assignments.map(assignment => ({ projectId, actorId, action: 'TASK_REASSIGNED', entityId: assignment.taskId, taskId: assignment.taskId, metadata: { previousAssigneeId: targetId, assigneeId: assignment.assigneeId, reason: 'MEMBER_REMOVAL' } })));
     await tx.invitation.updateMany({ where: { projectId, email: plan.targetEmail, acceptedAt: null, revokedAt: null }, data: { revokedAt: new Date() } });
     await tx.membership.delete({ where: { projectId_userId: { projectId, userId: targetId } } });
     await recordActivity(tx, projectId, actorId, actorId === targetId ? 'MEMBER_LEFT' : 'MEMBER_REMOVED', targetId, { mode: input.mode, reassignedTasks: plan.assignments.length });

@@ -11,6 +11,35 @@
   ],
   "item": [
     {
+      "name": "List task activity history",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}/activity",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Current members can inspect active tasks; only owners can inspect task/project trash. Includes task, assignment, comment, and attachment events with public actor names. Read-only, paginated, newest first with ID ascending ties. Filter by action or actorId. Purged tasks return 404; their project history remains."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "Upload task attachment",
       "request": {
         "method": "POST",

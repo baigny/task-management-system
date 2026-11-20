@@ -156,7 +156,19 @@ restoration preserves each task's own trash state. Permanent deletion requires
 prior soft deletion and cascades child records. Physical file deletion uses a
 durable retry queue. Removed members lose access to subsequent requests.
 
-### Errors
+### Activity history
+
+`GET /api/v1/projects/{projectId}/activity` returns paginated project history.
+Filter by `action`, `actorId`, or `taskId`. Use
+`GET /api/v1/projects/{projectId}/tasks/{taskId}/activity` for a task timeline,
+including its comments, attachments, assignments, and lifecycle events. Entries
+include public actor names and changed field names, without copying comment text,
+attachment paths, passwords, or tokens. History is read-only and newest first.
+
+Current members can inspect active project/task history; owners can also inspect
+trash. Task purge preserves project history, while project purge removes it.
+
+### Error responses
 
 Errors use `{ "error": { "code": "...", "message": "..." } }`; validation errors
 may include `details`. Common statuses are 400 (validation), 401 (authentication),

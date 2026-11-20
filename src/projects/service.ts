@@ -1,4 +1,4 @@
-import type { Activity, Project, Prisma } from '@prisma/client';
+import type { Project, Prisma } from '@prisma/client';
 import type { Page } from '../validation.js';
 import type { ProjectInput, ProjectUpdate } from './validation.js';
 import { recordActivity } from '../activity.js';
@@ -63,14 +63,4 @@ export function purgeProject(projectId: string, userId: string) {
     await queueTaskFiles(tx, projectId);
     await tx.project.delete({ where: { id: project.id } });
   }, { ownerOnly: true, includeDeleted: true });
-}
-
-/** Read project activity for members, permitting only owners to inspect deleted projects. */
-export function listActivity(projectId: string, userId: string, page: number, limit: number): Promise<Page<Activity>> {
-  return inProject(projectId, userId, async (tx, project) => {
-    if (project.deletedAt && project.ownerId !== userId) throw new ApiError(404, 'NOT_FOUND', 'Project not found');
-    const where = { projectId };
-    const items = await tx.activity.findMany({ where, ...pageArgs(page, limit), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
-    return { items, total: await tx.activity.count({ where }), page, limit };
-  }, { includeDeleted: true, mode: 'read' });
 }
