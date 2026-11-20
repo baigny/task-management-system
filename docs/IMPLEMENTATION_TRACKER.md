@@ -19,10 +19,10 @@ function documentation, Swagger, Postman, and README are included together.
 | Invitations and joining | Pushed | Owner issue/list/revoke; email-bound, expiring, single-use, hashed tokens; no outbound invitation email |
 | Member profiles and ownership transfer | Pushed | Public profile pages, per-project roles, existing-member transfer, concurrent transfer tests |
 | Current-stage code review fixes | Verified in this review | Optional checked auth context, schema-derived DTOs, compiler-checked OpenAPI types, shared read locks, unknown error narrowing, typed activity actions, dead-code removal, Docker readiness |
-| Member removal / leaving | Verified in this batch | Owner protection, manual/automatic reassignment, preview, transactional membership change |
-| Automatic workload balancing | Verified in this batch | Count unfinished, non-deleted tasks in the current project; zero-work members first; stable ties; update counts after every assignment; owner fallback |
-| Task Create / Read / Update / Delete | Create and Read pushed; Update verified in this batch; lifecycle pending | Title/description/due date/status/assignment; project membership checks; members soft-delete; owners restore/purge |
-| Task discovery | Verified in this batch | Assigned-to-me across accessible projects, status/project/assignee filters, title-description search, allowlisted sorting, pagination |
+| Member removal / leaving | Pushed | Owner protection, manual/automatic reassignment, preview, transactional membership change |
+| Automatic workload balancing | Pushed | Count unfinished, non-deleted tasks in the current project; zero-work members first; stable ties; update counts after every assignment; owner fallback |
+| Task Create / Read / Update / Delete | Create/Read/Update pushed; deletion/restoration lifecycle verified in this batch | Title/description/due date/status/assignment; project membership checks; members soft-delete; owners restore/purge |
+| Task discovery | Pushed | Assigned-to-me across accessible projects, status/project/assignee filters, title-description search, allowlisted sorting, pagination |
 | Parent-child deletion | Partly complete | Projects now cascade memberships, invitations, activity, and tasks on purge. Add comments/attachments/notifications FKs and stored-file cleanup with those features. Soft project deletion hides children without overwriting their own deletion state |
 | Comments | Pending | Membership checks, author/owner deletion permissions |
 | Attachments | Pending | Protected upload/download, generated storage names, content validation, 10 MB limit, file allowlist, durable cleanup |
@@ -51,7 +51,7 @@ function documentation, Swagger, Postman, and README are included together.
 ## Necessary remaining quality checks
 
 - Keep subsequent implementation, tests, comments, Swagger, Postman, and README in the same functional batch.
-- Cover removal/assignment races, restoration of tasks with departed assignees, deletion cascades, protected files, SSE reconnect/revocation, and AI failures with the features.
+- Removal/assignment races and departed-assignee restoration are covered. Add protected-file, SSE reconnect/revocation, and AI-failure coverage with those features.
 - Add bounded cleanup for expired sessions, recovery tokens, and stale throttle records before final delivery.
 - Keep activity for membership, ownership, assignment, deletion, and restoration changes in the same transaction as each change.
 - Keep single-instance storage/SSE limits explicit. Add Redis/object storage only if deployment requirements change.
@@ -62,7 +62,7 @@ function documentation, Swagger, Postman, and README are included together.
 
 - Prisma client regenerated; no missing model or DTO type errors remain in compilation.
 - Type checking, linting, OpenAPI validation/Postman consistency, and build passed.
-- 20 unit/contract tests and 84 isolated PostgreSQL integration tests passed.
+- 20 unit/contract tests and 94 isolated PostgreSQL integration tests passed.
 - Member-removal tests cover automatic/manual allocation, zero-workload priority, stable ties, owner fallback, completed/deleted history, invitation revocation, stale previews, concurrent removal, rollback, and a 1,100-task batch.
 - Regression coverage includes absent auth context, JWT issuer/audience/algorithm/claims,
   concurrent shared reads, and an actual PostgreSQL lock timeout for conflicting writes.

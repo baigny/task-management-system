@@ -1,8 +1,8 @@
-import type { Task } from '@prisma/client';
+import { TaskStatus, type Task } from '@prisma/client';
 import { inProject } from '../access.js';
 import { recordActivity } from '../activity.js';
 import { validateAssignee } from './assignment.js';
-import { requireActiveTask } from './access.js';
+import { requireTask } from './access.js';
 import type { TaskInput, TaskUpdate } from './validation.js';
 
 /** Create a task only within an active project and validate its optional assignee under the same lock. */
@@ -29,8 +29,12 @@ function changedFields(task: Task, input: TaskUpdate) {
 /** Update only supplied fields and record meaningful edits and assignment changes atomically. */
 export function updateTask(projectId: string, userId: string, taskId: string, input: TaskUpdate): Promise<Task> {
   return inProject(projectId, userId, async tx => {
-    const task = await requireActiveTask(tx, projectId, taskId);
+    const task = await requireTask(tx, projectId, taskId);
     await validateAssignee(tx, projectId, input.assigneeId);
+    // Reopening completed history must not reactivate an assignment to a departed member.
+    if ((input.status ?? task.status) !== TaskStatus.COMPLETED && input.assigneeId === undefined) {
+      await validateAssignee(tx, projectId, task.assigneeId);
+    }
     const fields = changedFields(task, input);
     if (!fields.length) return task;
     const updated = await tx.task.update({ where: { id: task.id }, data: input });

@@ -4,6 +4,7 @@ import { id } from '../validation.js';
 import { readTask as read, listProjectTasks as list, discoverTasks as discover } from './read.js';
 import { taskInput, taskUpdate, taskListQuery, taskDiscoveryQuery } from './validation.js';
 import * as tasks from './service.js';
+import * as lifecycle from './lifecycle.js';
 
 /** Validate task fields and bind project and creator identifiers to the authenticated request. */
 export async function createTask(req: Request, res: Response) {
@@ -28,4 +29,21 @@ export async function discoverTasks(req: Request, res: Response) {
 /** Validate a nonempty partial update while keeping project, creator, and deletion fields protected. */
 export async function updateTask(req: Request, res: Response) {
   res.json(await tasks.updateTask(id.parse(req.params.projectId), getAuth(req).userId, id.parse(req.params.taskId), taskUpdate.parse(req.body)));
+}
+
+/** Soft-delete a task as a current project member. */
+export async function deleteTask(req: Request, res: Response) {
+  await lifecycle.deleteTask(id.parse(req.params.projectId), getAuth(req).userId, id.parse(req.params.taskId));
+  res.sendStatus(204);
+}
+
+/** Restore a task as the project owner, revalidating any historical assignee. */
+export async function restoreTask(req: Request, res: Response) {
+  res.json(await lifecycle.restoreTask(id.parse(req.params.projectId), getAuth(req).userId, id.parse(req.params.taskId)));
+}
+
+/** Permanently purge an owner's task only after soft deletion. */
+export async function purgeTask(req: Request, res: Response) {
+  await lifecycle.purgeTask(id.parse(req.params.projectId), getAuth(req).userId, id.parse(req.params.taskId));
+  res.sendStatus(204);
 }

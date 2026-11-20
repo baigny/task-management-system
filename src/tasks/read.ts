@@ -1,7 +1,7 @@
 import type { Prisma, Task } from '@prisma/client';
 import { db } from '../db.js';
 import { inProject } from '../access.js';
-import { requireActiveTask } from './access.js';
+import { requireTask } from './access.js';
 import { pageArgs, type Page } from '../validation.js';
 import type { TaskDiscoveryQuery, TaskListQuery } from './validation.js';
 
@@ -9,7 +9,7 @@ import type { TaskDiscoveryQuery, TaskListQuery } from './validation.js';
 function taskFilter(query: TaskListQuery, userId: string): Prisma.TaskWhereInput {
   const search = query.search?.replace(/[\\%_]/g, '\\$&');
   return {
-    deletedAt: null,
+    deletedAt: query.deleted ? { not: null } : null,
     ...(query.status ? { status: query.status } : {}),
     ...(query.assigneeId ? { assigneeId: query.assigneeId === 'me' ? userId : query.assigneeId === 'unassigned' ? null : query.assigneeId } : {}),
     ...(search ? { OR: [{ title: { contains: search, mode: 'insensitive' } }, { description: { contains: search, mode: 'insensitive' } }] } : {}),
@@ -23,7 +23,7 @@ function taskOrder(query: TaskListQuery): Prisma.TaskOrderByWithRelationInput[] 
 
 /** Read one non-deleted task only within the authenticated member's active project. */
 export function readTask(projectId: string, userId: string, taskId: string): Promise<Task> {
-  return inProject(projectId, userId, tx => requireActiveTask(tx, projectId, taskId), { mode: 'read' });
+  return inProject(projectId, userId, tx => requireTask(tx, projectId, taskId), { mode: 'read' });
 }
 
 /** List project tasks under a shared project lock so rows and count describe one state. */
@@ -32,7 +32,7 @@ export function listProjectTasks(projectId: string, userId: string, query: TaskL
     const where = { ...taskFilter(query, userId), projectId };
     const items = await tx.task.findMany({ where, ...pageArgs(query.page, query.limit), orderBy: taskOrder(query) });
     return { items, total: await tx.task.count({ where }), page: query.page, limit: query.limit };
-  }, { mode: 'read' });
+  }, { mode: 'read', ownerOnly: query.deleted });
 }
 
 /** Discover tasks across current memberships with a consistent snapshot and optional project filter. */
@@ -40,7 +40,7 @@ export async function discoverTasks(userId: string, query: TaskDiscoveryQuery): 
   const where: Prisma.TaskWhereInput = {
     ...taskFilter(query, userId),
     ...(query.projectId ? { projectId: query.projectId } : {}),
-    project: { deletedAt: null, memberships: { some: { userId } } },
+    project: { deletedAt: null, memberships: { some: { userId } }, ...(query.deleted ? { ownerId: userId } : {}) },
   };
   const [items, total] = await db.$transaction([
     db.task.findMany({ where, ...pageArgs(query.page, query.limit), orderBy: taskOrder(query) }),

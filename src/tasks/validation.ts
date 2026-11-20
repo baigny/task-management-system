@@ -18,6 +18,7 @@ export type TaskUpdate = z.output<typeof taskUpdate>;
 export type TaskInput = z.output<typeof taskInput>;
 
 export const taskListQuery = pagination.extend({
+  deleted: z.enum(['true', 'false']).default('false').transform(value => value === 'true'),
   status: z.enum(TaskStatus).optional(),
   assigneeId: z.union([id, z.enum(['me', 'unassigned'])]).optional(),
   search: z.string().trim().min(1).max(200).optional(),

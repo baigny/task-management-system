@@ -94,6 +94,8 @@ describe('task updates and assignment', () => {
     await request(app).delete(`/api/v1/projects/${team.id}/members/${users[1].id}`).set(auth()).expect(200);
     const edited = await request(app).patch(path(item.id, team.id)).set(auth(2)).send({ description: 'Historical completion' }).expect(200);
     expect(edited.body.assigneeId).toBe(users[1].id);
+    await request(app).patch(path(item.id, team.id)).set(auth()).send({ status: 'OPEN' }).expect(400);
+    await request(app).patch(path(item.id, team.id)).set(auth()).send({ status: 'OPEN', assigneeId: null }).expect(200);
     await request(app).patch(path(item.id, team.id)).set(auth()).send({ assigneeId: users[1].id }).expect(400);
     await request(app).patch(path(item.id, team.id)).set(auth()).send({ assigneeId: users[0].id }).expect(200);
   });

@@ -1028,7 +1028,7 @@
             }
           ]
         },
-        "description": "Members only. Lists non-deleted tasks with status/assignee filters, literal title-description search, pagination, and allowlisted sorting. Due dates sort with nulls last; ID breaks ties. Unknown query fields are rejected."
+        "description": "Members can list active tasks; deleted=true requires the owner. Supports status/assignee filters, literal title-description search, pagination, and allowlisted sorting. Due dates sort with nulls last; ID breaks ties. Unknown query fields are rejected."
       },
       "event": [
         {
@@ -1115,7 +1115,7 @@
             }
           ]
         },
-        "description": "Any current member can edit task details/status or assign a current member. Null assigneeId unassigns and null dueDate clears the deadline. At least one supported field is required; omitted fields stay unchanged. Protected identifiers/deletion fields are rejected. No-op edits preserve updatedAt and add no activity. Updates, assignment history, and membership coordination are transactional. Deleted tasks/projects return 404.",
+        "description": "Any current member can edit task details/status or assign a current member. Null assigneeId unassigns and null dueDate clears the deadline. At least one supported field is required; omitted fields stay unchanged. Protected identifiers/deletion fields are rejected. No-op edits preserve updatedAt and add no activity. Reopening completed history with a departed assignee requires a current replacement or explicit null assignee. Updates, assignment history, and membership coordination are transactional. Deleted tasks/projects return 404.",
         "header": [
           {
             "key": "Content-Type",
@@ -1139,6 +1139,93 @@
             "type": "text/javascript",
             "exec": [
               "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Soft-delete project task",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Any current member may soft-delete an active task. Records deletion actor/time and activity; normal reads hide it. Repeated deletion returns 404. Restoring and permanent deletion are owner-only."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Restore project task",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}/restore",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner only. Requires a deleted task in an active project. Keeps status and other fields. If the historical assignee has left, selects a replacement using the same workload rule as member removal and records the old/new assignment. Unassigned tasks stay unassigned. Active tasks return 409."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Permanently delete task",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}/permanent",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner only. Requires prior soft deletion; active tasks return 409. Permanently removes the task and keeps its TASK_PURGED project activity record."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(204); });"
             ]
           }
         }

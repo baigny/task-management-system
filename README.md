@@ -275,9 +275,9 @@ recalculates: tasks or workloads may have changed since the preview.
 Assignment changes, pending-invitation revocation, membership removal, and activity
 records commit together. Removed members immediately lose subsequent project access.
 Completed and soft-deleted tasks retain their historical assignments; task restoration
-will validate departed assignees when the task lifecycle API is added. Bulk writes
+validates departed assignees before making tasks visible again. Bulk writes
 and activity inserts are grouped in bounded batches. Permanent project purge now
-cascades task records. Task CRUD HTTP endpoints follow in a separate functional batch.
+cascades task records. Task CRUD HTTP endpoints are documented below.
 
 ## Creating tasks
 
@@ -351,4 +351,26 @@ Edits and assignment activity commit together. No-op updates preserve `updatedAt
 and create no activity. Assignment and member removal share the project lock, so
 unfinished tasks cannot end up assigned to a removed member. Completed historical
 assignments may remain after removal; editing unrelated fields preserves that history,
-while any explicitly supplied assignee must currently belong to the project.
+while any explicitly supplied assignee must currently belong to the project. Reopening
+a completed task whose assignee has left requires a current assignee or explicit
+`assigneeId: null` in the same update.
+
+## Task deletion and restoration
+
+Members can call `DELETE /api/v1/projects/{projectId}/tasks/{taskId}` to soft-delete
+a task. `deletedAt` and `deletedById` are recorded; normal reads and discovery hide it.
+Only owners can list task trash with `GET /api/v1/projects/{projectId}/tasks?deleted=true`,
+restore with `POST /api/v1/projects/{projectId}/tasks/{taskId}/restore`, or permanently
+purge with `DELETE /api/v1/projects/{projectId}/tasks/{taskId}/permanent`.
+Cross-project `GET /api/v1/tasks?deleted=true` includes only caller-owned active projects.
+
+A task must be soft-deleted before permanent purge. Restoration preserves its status,
+details, and existing valid assignee. If the assignee has left, the owner restores it
+with a replacement chosen by the same workload balancing rule as member removal;
+activity retains the previous assignment. Explicitly unassigned tasks remain unassigned.
+Restoring an active task returns 409; repeated soft deletion returns 404.
+
+Deleting a project hides every child task without overwriting individual task deletion
+flags. Restore the project first; tasks that were already in trash stay there, while
+previously active tasks become visible again. Permanent project purge cascades task
+records. Task purge keeps a project activity record; project purge removes project history.

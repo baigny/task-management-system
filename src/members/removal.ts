@@ -1,8 +1,9 @@
-import { TaskStatus, type Prisma, type Project } from '@prisma/client';
+import { type Project } from '@prisma/client';
 import { inProject, type Transaction } from '../access.js';
 import { recordActivities, recordActivity } from '../activity.js';
 import { ApiError } from '../errors.js';
-import { allocateTasks } from './allocation.js';
+import { allocateTasks } from '../tasks/allocation.js';
+import { automaticCandidates, loadWorkloads, unfinishedTaskWhere } from '../tasks/assignment.js';
 import type { RemovalInput } from './validation.js';
 import type { RemovalPreview } from './types.js';
 
@@ -13,20 +14,16 @@ async function removalPlan(tx: Transaction, project: Project, actorId: string, t
   if (input.mode === 'MANUAL' && actorId !== project.ownerId) throw new ApiError(403, 'FORBIDDEN', 'Only the owner can choose a replacement');
   const target = await tx.membership.findUnique({ where: { projectId_userId: { projectId: project.id, userId: targetId } }, select: { user: { select: { email: true } } } });
   if (!target) throw new ApiError(404, 'NOT_FOUND', 'Member not found');
-  let candidates = await tx.membership.findMany({ where: { projectId: project.id, userId: { not: targetId } }, select: { userId: true } });
+  let candidates: { userId: string }[];
   if (input.mode === 'MANUAL') {
-    candidates = candidates.filter(candidate => candidate.userId === input.replacementUserId);
-    if (!candidates.length) throw new ApiError(400, 'INVALID_ASSIGNEE', 'Replacement must be a remaining project member');
-  } else {
-    // Keep the owner as the fallback when no other remaining members are available.
-    const members = candidates.filter(candidate => candidate.userId !== project.ownerId);
-    if (members.length) candidates = members;
-  }
-  const active: Prisma.TaskWhereInput = { projectId: project.id, deletedAt: null, status: { in: [TaskStatus.OPEN, TaskStatus.IN_PROGRESS] } };
+    const member = await tx.membership.findUnique({ where: { projectId_userId: { projectId: project.id, userId: input.replacementUserId } }, select: { userId: true } });
+    if (!member || member.userId === targetId) throw new ApiError(400, 'INVALID_ASSIGNEE', 'Replacement must be a remaining project member');
+    candidates = [member];
+  } else candidates = await automaticCandidates(tx, project.id, project.ownerId, targetId);
+  const active = unfinishedTaskWhere(project.id);
   const tasks = await tx.task.findMany({ where: { ...active, assigneeId: targetId }, select: { id: true }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
-  const counts = await tx.task.groupBy({ by: ['assigneeId'], where: { ...active, assigneeId: { in: candidates.map(candidate => candidate.userId) } }, _count: { _all: true } });
-  const workloads = new Map(counts.map(count => [count.assigneeId, count._count._all]));
-  const plan = allocateTasks(tasks.map(task => task.id), candidates.map(candidate => ({ userId: candidate.userId, activeTasks: workloads.get(candidate.userId) ?? 0 })));
+  const workloads = await loadWorkloads(tx, project.id, candidates);
+  const plan = allocateTasks(tasks.map(task => task.id), workloads);
   const preview: RemovalPreview = { userId: targetId, mode: input.mode, unfinishedTasks: tasks.length, allocations: plan.allocations };
   return { ...plan, preview, targetEmail: target.user.email, active };
 }

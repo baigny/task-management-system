@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allocateTasks } from '../src/members/allocation.js';
+import { allocateTasks } from '../src/tasks/allocation.js';
 
 describe('automatic task allocation', () => {
   it('assigns zero-workload members first and recalculates after every assignment', () => {
