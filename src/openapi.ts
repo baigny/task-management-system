@@ -26,8 +26,14 @@ export const schemas: Record<string, Schema> = {
   ResetPassword: object({ token: { type: 'string', pattern: '^[a-f0-9]{64}$', writeOnly: true }, password: ref('Password'), confirmPassword: { allOf: [ref('Password')], description: 'Must match password.' } }),
   ChangePassword: object({ currentPassword: { type: 'string', minLength: 1, maxLength: 128, writeOnly: true }, password: ref('Password'), confirmPassword: { allOf: [ref('Password')], description: 'Must match password.' } }),
   Project: object({ id: { type: 'string', format: 'uuid' }, name: { type: 'string' }, description: { type: 'string' }, ownerId: { type: 'string', format: 'uuid' }, createdAt: { type: 'string', format: 'date-time' } }),
+  ProjectList: object({ items: { type: 'array', items: ref('Project') }, total: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' } }),
   ProjectInput: object({ name: { type: 'string', minLength: 1, maxLength: 100 }, description: { type: 'string', maxLength: 5000, default: '' } }, ['name']),
 };
+
+export const pageParameters = [
+  { name: 'page', schema: { type: 'integer', minimum: 1, maximum: 100000, default: 1 } },
+  { name: 'limit', schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 } },
+];
 
 // Both Swagger and Postman consume these operations, so examples change with each feature.
 export const operations: Operation[] = [
@@ -43,6 +49,8 @@ export const operations: Operation[] = [
   { method: 'post', path: '/api/v1/auth/reset-password', summary: 'Reset password', auth: false, status: 204, body: 'ResetPassword', errors: [400, 429, 500], example: { token: '{{resetToken}}', password: 'replacement-password-123', confirmPassword: 'replacement-password-123' }, description: 'Consumes a single-use token within 15 minutes, revokes all sessions and outstanding reset tokens, and requires a fresh login. Passwords must match. Expired, invalid, or reused tokens return the same 400 error.' },
   { method: 'post', path: '/api/v1/auth/change-password', summary: 'Change password', status: 204, body: 'ChangePassword', example: { currentPassword: 'strong-password-123', password: 'replacement-password-123', confirmPassword: 'replacement-password-123' }, description: 'Requires a valid session, current password, and matching new passwords. Revokes every session and reset token. Five attempts per account per 15 minutes. All password-recovery routes share a separate 20-request IP limit per 15 minutes.' },
   { method: 'post', path: '/api/v1/projects', summary: 'Create project', status: 201, body: 'ProjectInput', response: 'Project', example: { name: 'Release', description: 'Coordinate the release' }, save: [{ variable: 'projectId', path: 'id' }], description: 'Creates the project and its owner membership atomically.' },
+  { method: 'get', path: '/api/v1/projects', summary: 'List projects', response: 'ProjectList', query: pageParameters, description: 'Lists only projects the authenticated user belongs to, newest first with an ID tie-breaker.' },
+  { method: 'get', path: '/api/v1/projects/{projectId}', summary: 'View project', response: 'Project', description: 'Members only. Nonmembers receive 404.' },
 ];
 
 /** Publish explicit success/error schemas and parameters for every documented endpoint. */

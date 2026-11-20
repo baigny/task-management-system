@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { id, pagination } from '../validation.js';
 import { projectInput } from './validation.js';
 import * as projects from './service.js';
 
@@ -7,3 +8,14 @@ export async function createProject(req: Request, res: Response) {
   res.status(201).json(await projects.createProject(req.auth.userId, projectInput.parse(req.body)));
 }
 
+
+/** Validate pagination before listing the authenticated account's projects. */
+export async function listProjects(req: Request, res: Response) {
+  const { page, limit } = pagination.parse(req.query);
+  res.json(await projects.listProjects(req.auth.userId, page, limit));
+}
+
+/** Validate the identifier before fetching an accessible project. */
+export async function readProject(req: Request, res: Response) {
+  res.json(await projects.readProject(id.parse(req.params.projectId), req.auth.userId));
+}

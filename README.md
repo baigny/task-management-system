@@ -156,3 +156,11 @@ An optional `description` can contain up to 5,000 characters; names are trimmed
 and must contain 1?100 characters. Unsupported fields are rejected.
 The creator becomes the owner and first member atomically. A user may own multiple
 projects. Postman stores the response ID as `projectId` for subsequent requests.
+
+## Reading projects
+
+`GET /api/v1/projects` lists only projects where you are an owner or member.
+Read an individual project at `GET /api/v1/projects/{projectId}`. Nonmembers
+receive 404. Lists accept `page` (default 1) and `limit` (default 20, maximum 100),
+returning `{ "items": [], "total": 0, "page": 1, "limit": 20 }`.
+Projects are ordered newest first with an ID tie-breaker for consistent pagination.

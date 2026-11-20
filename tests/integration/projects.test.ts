@@ -29,4 +29,23 @@ describe('project creation', () => {
     }
     expect(await db.project.count({ where: { ownerId: users[0].id } })).toBe(2);
   });
+  it('isolates project reads and allows membership in multiple projects', async () => {
+    const owned = await db.project.findMany({ where: { ownerId: users[0].id }, orderBy: { createdAt: 'asc' } });
+    await request(app).get(`/api/v1/projects/${owned[0].id}`).set(auth(1)).expect(404);
+    expect((await request(app).get('/api/v1/projects').set(auth(1)).expect(200)).body.total).toBe(0);
+    await db.membership.createMany({ data: owned.map(project => ({ projectId: project.id, userId: users[1].id })) });
+    await request(app).get(`/api/v1/projects/${owned[0].id}`).set(auth(1)).expect(200);
+    const page = await request(app).get('/api/v1/projects?limit=1').set(auth(1)).expect(200);
+    expect(page.body).toMatchObject({ total: 2, page: 1, limit: 1 });
+    expect(page.body.items).toHaveLength(1);
+    const next = await request(app).get('/api/v1/projects?limit=1&page=2').set(auth(1)).expect(200);
+    expect(next.body.items[0].id).not.toBe(page.body.items[0].id);
+    expect((await request(app).get('/api/v1/projects?page=3&limit=1').set(auth()).expect(200)).body.items).toEqual([]);
+  });
+  it('validates read identifiers, pagination, and authentication', async () => {
+    await request(app).get('/api/v1/projects').expect(401);
+    await request(app).get('/api/v1/projects/invalid').set(auth()).expect(400);
+    await request(app).get('/api/v1/projects?limit=101').set(auth()).expect(400);
+    await request(app).get('/api/v1/projects?page=0').set(auth()).expect(400);
+  });
 });
