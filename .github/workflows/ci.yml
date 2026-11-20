@@ -1,0 +1,23 @@
+name: CI
+on:
+  push:
+    branches: [main, feat-task-management]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://taskapp:taskapp@localhost:5432/task_management_test
+          JWT_SECRET: ci-test-secret-is-not-used-outside-ephemeral-tests
