@@ -34,6 +34,8 @@ export const schemas: Record<string, Schema> = {
   InvitationResult: object({ invitation: ref('Invitation'), token: { type: 'string', writeOnly: false, description: 'Returned only at issuance; share securely with the invited account.' } }),
   InvitationAcceptance: object({ token: { type: 'string', pattern: '^[a-f0-9]{64}$', writeOnly: true } }),
   InvitationList: object({ items: { type: 'array', items: ref('Invitation') }, total: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' } }),
+  OwnershipTransfer: object({ newOwnerId: { type: 'string', format: 'uuid' } }),
+  MemberList: object({ items: { type: 'array', items: object({ projectId: { type: 'string', format: 'uuid' }, userId: { type: 'string', format: 'uuid' }, createdAt: { type: 'string', format: 'date-time' }, user: ref('User'), role: { type: 'string', enum: ['OWNER', 'MEMBER'] } }) }, total: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' } }),
   ProjectInput: object({ name: { type: 'string', minLength: 1, maxLength: 100 }, description: { type: 'string', maxLength: 5000, default: '' } }, ['name']),
 };
 
@@ -67,6 +69,8 @@ export const operations: Operation[] = [
   { method: 'get', path: '/api/v1/projects/{projectId}/invitations', summary: 'List project invitations', response: 'InvitationList', query: pageParameters, description: 'Owner only. Lists invitation state without secrets or token hashes.' },
   { method: 'delete', path: '/api/v1/projects/{projectId}/invitations/{invitationId}', summary: 'Revoke invitation', status: 204, description: 'Owner only. Revokes an unused invitation. Repeated revocation is harmless; accepted invitations return 409.' },
   { method: 'post', path: '/api/v1/invitations/accept', summary: 'Accept project invitation', body: 'InvitationAcceptance', response: 'Project', example: { token: '{{invitationToken}}' }, description: 'Authenticate as the invited email account. Invalid, expired, revoked, replaced, reused, and wrong-account tokens return the same 400. Joining a deleted project is forbidden. Creates membership and activity atomically. Limited to 30 attempts per IP per 15 minutes.' },
+  { method: 'get', path: '/api/v1/projects/{projectId}/members', summary: 'List project members', response: 'MemberList', query: pageParameters, description: 'Members only. Returns public profiles and roles scoped to this project; credentials and session fields are excluded.' },
+  { method: 'post', path: '/api/v1/projects/{projectId}/ownership', summary: 'Transfer project ownership', body: 'OwnershipTransfer', response: 'Project', example: { newOwnerId: '{{replacementUserId}}' }, description: 'Owner only. The new owner must already be a member. The previous owner remains a member. Changes and activity are atomic; the project always has exactly one owner.' },
 ];
 
 /** Publish explicit success/error schemas and parameters for every documented endpoint. */

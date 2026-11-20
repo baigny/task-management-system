@@ -803,6 +803,79 @@
           }
         }
       ]
+    },
+    {
+      "name": "List project members",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/members",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Members only. Returns public profiles and roles scoped to this project; credentials and session fields are excluded."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transfer project ownership",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/ownership",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner only. The new owner must already be a member. The previous owner remains a member. Changes and activity are atomic; the project always has exactly one owner.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"newOwnerId\": \"{{replacementUserId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

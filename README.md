@@ -212,3 +212,17 @@ Tokens are never included in invitation lists, logs, or activity metadata. Inval
 expired, revoked, replaced, reused, and wrong-account tokens share a 400 response.
 Acceptance permits 30 attempts per IP per 15 minutes. Membership changes and activity
 entries commit together under the project lock, including concurrent acceptance.
+
+## Member roles and ownership
+
+`GET /api/v1/projects/{projectId}/members` returns paginated public profiles with
+`OWNER` or `MEMBER` roles. Roles belong to the project: someone can own one project
+and be a member of another. Joining never grants ownership. Credentials and session
+fields are excluded from member responses.
+
+The owner can call `POST /api/v1/projects/{projectId}/ownership` with
+`{ "newOwnerId": "<current member UUID>" }`. The nominated account must already
+belong to the project; the previous owner remains a member. Owner privileges move
+immediately and the activity record commits with the transfer. Concurrent transfers
+are serialized so the project retains exactly one owner. Deleted projects cannot
+change ownership. Set `replacementUserId` in Postman to try the example.
