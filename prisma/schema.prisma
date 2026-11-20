@@ -17,6 +17,8 @@ model User {
   sessions     Session[]
   passwordChangedAt DateTime?
   passwordResets PasswordReset[]
+  ownedProjects Project[]
+  memberships Membership[]
 }
 
 model Session {
@@ -43,4 +45,25 @@ model PasswordReset {
   expiresAt DateTime
   createdAt DateTime @default(now())
   @@index([userId, expiresAt])
+}
+
+model Project {
+  id          String       @id @default(uuid())
+  name        String
+  description String       @default("")
+  ownerId     String
+  owner       User         @relation(fields: [ownerId], references: [id])
+  createdAt   DateTime     @default(now())
+  memberships Membership[]
+  @@index([ownerId])
+}
+
+model Membership {
+  projectId String
+  userId    String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@id([projectId, userId])
+  @@index([userId])
 }

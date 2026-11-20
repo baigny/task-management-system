@@ -148,3 +148,11 @@ Missing SMTP configuration returns 503 uniformly. Delivery failures are logged w
 tokens or SMTP details; undelivered tokens are removed. The bounded, in-memory delivery
 queue is drained during graceful shutdown. If the process is forcibly terminated before
 delivery, request recovery again. No reset token is put in a URL or API response.
+
+## Creating projects
+
+Call `POST /api/v1/projects` with a bearer token and `{ "name": "Release" }`.
+An optional `description` can contain up to 5,000 characters; names are trimmed
+and must contain 1?100 characters. Unsupported fields are rejected.
+The creator becomes the owner and first member atomically. A user may own multiple
+projects. Postman stores the response ID as `projectId` for subsequent requests.
