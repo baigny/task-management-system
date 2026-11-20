@@ -26,6 +26,7 @@ model User {
   createdTasks Task[] @relation("TaskCreator")
   deletedTasks Task[] @relation("TaskDeletedBy")
   comments Comment[]
+  attachments Attachment[]
 }
 
 model Session {
@@ -137,6 +138,7 @@ model Task {
   deletedById String?
   deletedBy User? @relation("TaskDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
   comments Comment[]
+  attachments Attachment[]
   @@index([projectId, deletedAt, status, assigneeId])
   @@index([assigneeId, status])
   @@index([projectId, createdAt, id])
@@ -157,4 +159,26 @@ model Comment {
   @@unique([id, taskId])
   @@index([taskId, parentId, createdAt, id])
   @@index([authorId])
+}
+
+model Attachment {
+  id String @id @default(uuid())
+  taskId String
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploaderId String?
+  uploader User? @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
+  storageKey String @unique
+  originalName String
+  mimeType String
+  size Int
+  createdAt DateTime @default(now())
+  @@index([taskId, createdAt, id])
+  @@index([uploaderId])
+}
+
+// Independent of task/project foreign keys so deletion work survives parent purges.
+model FileCleanup {
+  storageKey String @id
+  availableAt DateTime @default(now())
+  @@index([availableAt, storageKey])
 }

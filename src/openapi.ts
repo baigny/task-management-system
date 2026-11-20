@@ -6,7 +6,7 @@ export type Operation = {
   method: 'get' | 'post' | 'patch' | 'delete'; path: string; summary: string;
   description?: string; auth?: boolean; status?: number; errors?: number[];
   body?: string; bodyRequired?: boolean; example?: Record<string, unknown>; response?: string;
-  requestContentType?: string; responseContentType?: string;
+  requestContentType?: string; responseContentType?: string; responseContentTypes?: string[];
   query?: { name: string; schema: Schema; example?: string; description?: string }[];
   save?: { variable: string; path: string }[];
 };
@@ -15,6 +15,10 @@ export const ref = (name: string): OpenAPIV3.ReferenceObject => ({ $ref: `#/comp
 /** Describe closed objects, omitting the OpenAPI required list for entirely optional fields. */
 export const object = (properties: Record<string, Schema>, required = Object.keys(properties)): OpenAPIV3.SchemaObject => ({ type: 'object', properties, ...(required.length ? { required } : {}), additionalProperties: false });
 export const schemas: Record<string, Schema> = {
+  AttachmentUpload: object({ file: { type: 'string', format: 'binary', description: 'One nonempty PDF, PNG, JPG, or JPEG; maximum 10 MB. Extension, media type, and signature must match.' } }),
+  Attachment: object({ id: { type: 'string', format: 'uuid' }, taskId: { type: 'string', format: 'uuid' }, uploaderId: { type: 'string', format: 'uuid', nullable: true }, originalName: { type: 'string' }, mimeType: { type: 'string', enum: ['application/pdf', 'image/png', 'image/jpeg'] }, size: { type: 'integer', minimum: 1, maximum: 10485760 }, createdAt: { type: 'string', format: 'date-time' } }),
+  AttachmentList: object({ items: { type: 'array', items: ref('Attachment') }, total: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' } }),
+  FileDownload: { type: 'string', format: 'binary' },
   CommentInput: object({ body: { type: 'string', minLength: 1, maxLength: 5000 }, parentId: { type: 'string', format: 'uuid', description: 'Omit for a new thread; provide a root comment ID to reply.' } }, ['body']),
   Comment: object({ id: { type: 'string', format: 'uuid' }, taskId: { type: 'string', format: 'uuid' }, authorId: { type: 'string', format: 'uuid', nullable: true }, parentId: { type: 'string', format: 'uuid', nullable: true }, body: { type: 'string', nullable: true }, createdAt: { type: 'string', format: 'date-time' }, deletedAt: { type: 'string', format: 'date-time', nullable: true }, author: { type: 'object', nullable: true, properties: { id: { type: 'string', format: 'uuid' }, email: { type: 'string', format: 'email' }, name: { type: 'string' }, createdAt: { type: 'string', format: 'date-time' } }, required: ['id', 'email', 'name', 'createdAt'], additionalProperties: false }, _count: object({ replies: { type: 'integer', minimum: 0 } }) }),
   CommentList: object({ items: { type: 'array', items: ref('Comment') }, total: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' } }),
@@ -69,6 +73,10 @@ export const taskParameters: NonNullable<Operation['query']> = [
 
 // Both Swagger and Postman consume these operations, so examples change with each feature.
 export const operations: Operation[] = [
+  { method: 'post', path: '/api/v1/projects/{projectId}/tasks/{taskId}/attachments', summary: 'Upload task attachment', status: 201, body: 'AttachmentUpload', requestContentType: 'multipart/form-data', response: 'Attachment', errors: [400, 401, 403, 404, 409, 413, 415, 429, 500], save: [{ variable: 'attachmentId', path: 'id' }], description: 'Current members only, active task/project required. Send one multipart file field named file with no extra fields. Only .pdf, .png, .jpg, .jpeg with matching media type and signature; maximum 10 MB (10485760 bytes). Text and other formats are rejected with 415. Limited to 30 upload requests per IP per 15 minutes. Access is checked before upload and again before persistence. Metadata and activity commit atomically; generated storage paths remain private.' },
+  { method: 'get', path: '/api/v1/projects/{projectId}/tasks/{taskId}/attachments', summary: 'List task attachments', response: 'AttachmentList', query: pageParameters, description: 'Current members only. Paginated metadata in chronological order with stable ID ties. Storage keys and filesystem paths are never returned.' },
+  { method: 'get', path: '/api/v1/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}/download', summary: 'Download task attachment', response: 'FileDownload', responseContentTypes: ['application/pdf', 'image/png', 'image/jpeg'], description: 'Requires a valid bearer session and current project membership on every request. Sends the stored media type, Content-Disposition attachment, Content-Length, no-store, and nosniff. No public download URLs. Cross-task IDs and hidden tasks/projects return 404. Authorization is evaluated when opening the stream.' },
+  { method: 'delete', path: '/api/v1/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}', summary: 'Delete task attachment', status: 204, description: 'Current uploader or project owner only. Removes metadata immediately and atomically queues durable physical deletion with activity. The worker retries failures every minute. Task/project permanent purges also queue their files before cascading metadata deletion. Soft deletion keeps files for restoration.' },
   { method: 'post', path: '/api/v1/projects/{projectId}/tasks/{taskId}/comments', summary: 'Create comment thread or reply', status: 201, body: 'CommentInput', response: 'Comment', example: { body: 'Can we review this task?' }, save: [{ variable: 'commentId', path: 'id' }], description: 'Current members only, on active tasks/projects. Omit parentId to start a thread; supply a root ID from this task to reply. Replies to replies are rejected with 400. Text is trimmed, 1–5000 characters. Creation and activity are atomic.' },
   { method: 'get', path: '/api/v1/projects/{projectId}/tasks/{taskId}/comments', summary: 'List task comment threads', response: 'CommentList', query: pageParameters, description: 'Lists roots chronologically with stable ID ties, public author profiles, and reply counts. Replies are paginated separately. Deleted text is null with deletedAt set; thread structure remains.' },
   { method: 'get', path: '/api/v1/projects/{projectId}/tasks/{taskId}/comments/{commentId}/replies', summary: 'List comment thread replies', response: 'CommentList', query: pageParameters, description: 'Current members only. commentId must be a root in this task. Returns chronological, paginated direct replies, including deletion placeholders.' },
@@ -116,7 +124,7 @@ function createPaths() {
   for (const operation of operations) {
     const status = operation.status ?? 200;
     const responses: OpenAPIV3.ResponsesObject = {
-      [status]: { description: 'Success', ...(status === 204 ? {} : { content: { [operation.responseContentType ?? 'application/json']: { schema: operation.response ? ref(operation.response) : { type: 'object' } } } }) },
+      [status]: { description: 'Success', ...(status === 204 ? {} : { content: Object.fromEntries((operation.responseContentTypes ?? [operation.responseContentType ?? 'application/json']).map(type => [type, { schema: operation.response ? ref(operation.response) : { type: 'object' } }])) }) },
     };
     for (const code of operation.errors ?? [400, 401, 403, 404, 409, 429, 500]) {
       responses[code] = { description: 'Error; see error.code and error.message', content: { 'application/json': { schema: ref('Error') } } };

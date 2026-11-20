@@ -35,6 +35,38 @@ drain over subsequent runs. Cleanup failures are logged and retried next run.
 
 ## HTTP API
 
+### Protected task attachments
+
+Use bearer authentication on every attachment request. Members can upload one file
+with `POST /api/v1/projects/:projectId/tasks/:taskId/attachments` using multipart
+field `file` and no other fields. Allowed extensions are **.jpg, .jpeg, .png, .pdf**;
+declared media types and binary signatures must match. Text and other formats are
+rejected. Files must be nonempty and at most 10 MB (10,485,760 bytes). Uploads are
+limited to 30 requests per IP per 15 minutes. Membership is checked before receiving
+the file and again before saving it.
+
+```sh
+curl -H "Authorization: Bearer $TOKEN" -F "file=@design.pdf;type=application/pdf" \
+  "http://localhost:3000/api/v1/projects/$PROJECT_ID/tasks/$TASK_ID/attachments"
+curl -H "Authorization: Bearer $TOKEN" -o design.pdf \
+  "http://localhost:3000/api/v1/projects/$PROJECT_ID/tasks/$TASK_ID/attachments/$ATTACHMENT_ID/download"
+```
+
+`GET .../attachments?page=1&limit=20` lists metadata. Every download requires a
+current membership and an active project/task. Files use generated names inside
+`UPLOAD_DIR`, outside public routes; responses never reveal storage keys or paths.
+Downloads use attachment disposition, the recorded media type, no-store, and nosniff.
+Authorization is checked when the download stream opens.
+
+The current uploader or project owner may `DELETE .../attachments/:attachmentId`.
+Deletion removes metadata immediately and queues physical cleanup in the same
+transaction. The worker processes up to 100 files every minute and retries failures;
+its queue survives restarts. Task/project permanent purges enqueue all child files
+before cascading metadata deletion. Soft deletion retains files for restoration.
+An upload cleanup reservation exists before any file is written, so abandoned uploads
+are reclaimed after one hour; rejected uploads become eligible immediately. Storage
+and cleanup assume the documented single API instance with a persistent upload volume.
+
 ### Threaded task comments
 
 Members can start a thread with `POST /api/v1/projects/:projectId/tasks/:taskId/comments`

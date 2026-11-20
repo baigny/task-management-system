@@ -5,6 +5,7 @@ import { ApiError } from '../errors.js';
 import { requireTask } from './access.js';
 import { automaticCandidates, loadWorkloads } from './assignment.js';
 import { allocateTasks } from './allocation.js';
+import { queueTaskFiles } from '../attachments/cleanup.js';
 
 /** Let any current member soft-delete an active task without destroying its history. */
 export function deleteTask(projectId: string, userId: string, taskId: string) {
@@ -42,6 +43,7 @@ export function purgeTask(projectId: string, userId: string, taskId: string) {
   return inProject(projectId, userId, async tx => {
     const task = await requireTask(tx, projectId, taskId, true);
     if (!task.deletedAt) throw new ApiError(409, 'CONFLICT', 'Soft-delete the task before permanent deletion');
+    await queueTaskFiles(tx, projectId, taskId);
     await tx.task.delete({ where: { id: task.id } });
     await recordActivity(tx, projectId, userId, 'TASK_PURGED', task.id);
   }, { ownerOnly: true });

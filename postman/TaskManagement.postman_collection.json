@@ -11,6 +11,136 @@
   ],
   "item": [
     {
+      "name": "Upload task attachment",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}/attachments",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Current members only, active task/project required. Send one multipart file field named file with no extra fields. Only .pdf, .png, .jpg, .jpeg with matching media type and signature; maximum 10 MB (10485760 bytes). Text and other formats are rejected with 415. Limited to 30 upload requests per IP per 15 minutes. Access is checked before upload and again before persistence. Metadata and activity commit atomically; generated storage paths remain private.",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": ""
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(201); });",
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const data = pm.response.json();",
+              "  pm.collectionVariables.set(\"attachmentId\", data[\"id\"]);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List task attachments",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}/attachments",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Current members only. Paginated metadata in chronological order with stable ID ties. Storage keys and filesystem paths are never returned."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Download task attachment",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}/attachments/{{attachmentId}}/download",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Requires a valid bearer session and current project membership on every request. Sends the stored media type, Content-Disposition attachment, Content-Length, no-store, and nosniff. No public download URLs. Cross-task IDs and hidden tasks/projects return 404. Authorization is evaluated when opening the stream."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete task attachment",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}/attachments/{{attachmentId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Current uploader or project owner only. Removes metadata immediately and atomically queues durable physical deletion with activity. The worker retries failures every minute. Task/project permanent purges also queue their files before cascading metadata deletion. Soft deletion keeps files for restoration."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "Create comment thread or reply",
       "request": {
         "method": "POST",

@@ -6,6 +6,7 @@ import { ApiError } from '../errors.js';
 import { inProject } from '../access.js';
 import { pageArgs } from '../validation.js';
 import { db } from '../db.js';
+import { queueTaskFiles } from '../attachments/cleanup.js';
 
 /** Create the project and its owner's membership atomically. */
 export function createProject(userId: string, input: ProjectInput): Promise<Project> {
@@ -59,6 +60,7 @@ export function restoreProject(projectId: string, userId: string) {
 export function purgeProject(projectId: string, userId: string) {
   return inProject(projectId, userId, async (tx, project) => {
     if (!project.deletedAt) throw new ApiError(409, 'CONFLICT', 'Soft-delete the project before permanent deletion');
+    await queueTaskFiles(tx, projectId);
     await tx.project.delete({ where: { id: project.id } });
   }, { ownerOnly: true, includeDeleted: true });
 }

@@ -1,6 +1,7 @@
 import type { ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
+import { MulterError } from 'multer';
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string, public retryAfter?: number) { super(message); }
@@ -8,6 +9,11 @@ export class ApiError extends Error {
 
 /** Expose expected client errors; keep database and internal details private. */
 export const errorHandler: ErrorRequestHandler = (error: unknown, req, res, _next) => {
+  if (error instanceof MulterError) {
+    const tooLarge = error.code === 'LIMIT_FILE_SIZE';
+    res.status(tooLarge ? 413 : 400).json({ error: { code: tooLarge ? 'FILE_TOO_LARGE' : 'INVALID_UPLOAD', message: tooLarge ? 'File exceeds the 10 MB limit' : 'Upload exactly one file using multipart field file, without additional fields' } });
+    return;
+  }
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
     res.status(409).json({ error: { code: 'CONFLICT', message: 'Resource already exists' } });
     return;
