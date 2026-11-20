@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import type { Transaction } from './access.js';
 
 export type ActivityAction = 'PROJECT_CREATED' | 'PROJECT_UPDATED' | 'PROJECT_DELETED' | 'PROJECT_RESTORED'
+  | 'COMMENT_CREATED' | 'COMMENT_DELETED'
   | 'INVITATION_CREATED' | 'INVITATION_REVOKED' | 'MEMBER_JOINED' | 'OWNERSHIP_TRANSFERRED' | 'MEMBER_REMOVED' | 'MEMBER_LEFT' | 'TASK_REASSIGNED' | 'TASK_CREATED' | 'TASK_UPDATED' | 'TASK_DELETED' | 'TASK_RESTORED' | 'TASK_PURGED';
 
 /** Append an activity record inside the transaction that makes the associated change. */

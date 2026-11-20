@@ -25,6 +25,7 @@ model User {
   assignedTasks Task[] @relation("TaskAssignee")
   createdTasks Task[] @relation("TaskCreator")
   deletedTasks Task[] @relation("TaskDeletedBy")
+  comments Comment[]
 }
 
 model Session {
@@ -135,7 +136,25 @@ model Task {
   deletedAt DateTime?
   deletedById String?
   deletedBy User? @relation("TaskDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  comments Comment[]
   @@index([projectId, deletedAt, status, assigneeId])
   @@index([assigneeId, status])
   @@index([projectId, createdAt, id])
+}
+
+model Comment {
+  id String @id @default(uuid())
+  taskId String
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId String?
+  author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  parentId String?
+  parent Comment? @relation("CommentReplies", fields: [parentId, taskId], references: [id, taskId], onDelete: Cascade)
+  replies Comment[] @relation("CommentReplies")
+  body String?
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
+  @@unique([id, taskId])
+  @@index([taskId, parentId, createdAt, id])
+  @@index([authorId])
 }

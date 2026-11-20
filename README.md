@@ -35,6 +35,22 @@ drain over subsequent runs. Cleanup failures are logged and retried next run.
 
 ## HTTP API
 
+### Threaded task comments
+
+Members can start a thread with `POST /api/v1/projects/:projectId/tasks/:taskId/comments`
+and `{ "body": "Please review this task" }`. Add `"parentId": "<root-comment-id>"`
+to reply inside that thread. Replies must target a root on the same task; deeper
+nesting is rejected. `GET` on the collection pages thread roots and reply counts;
+`GET .../comments/:commentId/replies?page=1&limit=20` pages replies chronologically.
+Both lists include public author profiles and stable ID ordering for ties.
+
+`DELETE .../comments/:commentId` allows the author or project owner to clear the
+text. A placeholder (`body: null`, `deletedAt` set) preserves the conversation and
+replies; members can continue replying to that thread. Removed members immediately
+lose access. Soft-deleted tasks/projects hide comments until restoration. Permanent
+task/project deletion cascades threads and replies. Every comment change and its
+activity record commit together. Use bearer authentication for every request.
+
 Run `npm run dev` for development or `npm run build && npm start` for compiled code.
 The API listens on `http://localhost:3000` by default. `GET /health` returns
 `{ "status": "ok" }`. Swagger UI is at `/docs` and its specification is at
