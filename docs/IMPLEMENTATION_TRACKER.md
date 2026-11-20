@@ -66,6 +66,7 @@ function documentation, Swagger, Postman, and README are included together.
 - Regression coverage includes absent auth context, JWT issuer/audience/algorithm/claims,
   concurrent shared reads, and an actual PostgreSQL lock timeout for conflicting writes.
 - Dependency audit reported zero vulnerabilities at review time.
+- CI actions were updated from deprecated Node.js 20 releases to official Node.js 24 releases, pinned by immutable commit; checkout credentials are not persisted.
 - Docker images rebuilt; migrations completed; Compose waited for API readiness.
 - Live Docker collaboration smoke passed invitations, ownership transfer, permission
   checks, soft deletion, restoration, and permanent purge. Only its randomly generated

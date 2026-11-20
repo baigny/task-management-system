@@ -25,6 +25,9 @@ are rejected in production. The local `.env` is ignored by Git. Never commit cre
 
 `npm run check` runs type checking, linting, configuration tests, and compilation.
 GitHub Actions runs the same checks for every feature branch push and pull request.
+The workflow pins [checkout v7.0.1](https://github.com/actions/checkout/releases/tag/v7.0.1)
+and [setup-node v7.1.0](https://github.com/actions/setup-node/releases/tag/v7.1.0) to
+immutable commits, uses their Node.js 24 runtime, and does not persist checkout credentials.
 Dependencies and database models are introduced with the features that use them.
 
 ## HTTP API
