@@ -41,6 +41,7 @@ export const schemas: Record<string, Schema> = {
   MemberList: object({ items: { type: 'array', items: object({ projectId: { type: 'string', format: 'uuid' }, userId: { type: 'string', format: 'uuid' }, createdAt: { type: 'string', format: 'date-time' }, user: ref('User'), role: { type: 'string', enum: ['OWNER', 'MEMBER'] } }) }, total: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' } }),
   MemberRemovalInput: { oneOf: [object({ mode: { type: 'string', enum: ['AUTOMATIC'], default: 'AUTOMATIC' } }, []), object({ mode: { type: 'string', enum: ['MANUAL'] }, replacementUserId: { type: 'string', format: 'uuid' } })] },
   RemovalPreview: object({ userId: { type: 'string', format: 'uuid' }, mode: { type: 'string', enum: ['AUTOMATIC', 'MANUAL'] }, unfinishedTasks: { type: 'integer', minimum: 0 }, allocations: { type: 'array', items: object({ userId: { type: 'string', format: 'uuid' }, currentTasks: { type: 'integer', minimum: 0 }, reassignedTasks: { type: 'integer', minimum: 0 }, resultingTasks: { type: 'integer', minimum: 0 } }) } }),
+  TaskList: object({ items: { type: 'array', items: ref('Task') }, total: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' } }),
   TaskStatus: { type: 'string', enum: Object.values(TaskStatus) },
   Task: object({ id: { type: 'string', format: 'uuid' }, projectId: { type: 'string', format: 'uuid' }, title: { type: 'string' }, description: { type: 'string' }, dueDate: { type: 'string', format: 'date-time', nullable: true }, status: ref('TaskStatus'), assigneeId: { type: 'string', format: 'uuid', nullable: true }, createdById: { type: 'string', format: 'uuid', nullable: true }, createdAt: { type: 'string', format: 'date-time' }, updatedAt: { type: 'string', format: 'date-time' }, deletedAt: { type: 'string', format: 'date-time', nullable: true }, deletedById: { type: 'string', format: 'uuid', nullable: true } }),
   TaskInput: object({ title: { type: 'string', minLength: 1, maxLength: 200 }, description: { type: 'string', maxLength: 10000, default: '' }, dueDate: { type: 'string', format: 'date-time', nullable: true }, status: { ...ref('TaskStatus') }, assigneeId: { type: 'string', format: 'uuid', nullable: true } }, ['title']),
@@ -50,6 +51,15 @@ export const schemas: Record<string, Schema> = {
 export const pageParameters: NonNullable<Operation['query']> = [
   { name: 'page', schema: { type: 'integer', minimum: 1, maximum: 100000, default: 1 } },
   { name: 'limit', schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 } },
+];
+
+export const taskParameters: NonNullable<Operation['query']> = [
+  ...pageParameters,
+  { name: 'status', schema: ref('TaskStatus') },
+  { name: 'assigneeId', schema: { type: 'string' }, description: 'A user UUID, me for the signed-in user, or unassigned.' },
+  { name: 'search', schema: { type: 'string', minLength: 1, maxLength: 200 }, description: 'Case-insensitive literal substring in title or description.' },
+  { name: 'sortBy', schema: { type: 'string', enum: ['createdAt', 'updatedAt', 'dueDate', 'title', 'status'], default: 'createdAt' } },
+  { name: 'sortOrder', schema: { type: 'string', enum: ['asc', 'desc'], default: 'desc' } },
 ];
 
 // Both Swagger and Postman consume these operations, so examples change with each feature.
@@ -82,6 +92,9 @@ export const operations: Operation[] = [
   { method: 'post', path: '/api/v1/projects/{projectId}/members/{userId}/removal-preview', summary: 'Preview member removal', body: 'MemberRemovalInput', bodyRequired: false, response: 'RemovalPreview', example: { mode: 'AUTOMATIC' }, description: 'Owner can preview removal of a member; members can preview their own leave. Owner removal returns 409. Default automatic mode balances unfinished, non-deleted tasks within this project, with stable user-ID ties. The owner is the fallback when no other members remain. Manual mode requires an owner-selected remaining member. Preview changes nothing and is advisory.' },
   { method: 'delete', path: '/api/v1/projects/{projectId}/members/{userId}', summary: 'Remove member or leave project', body: 'MemberRemovalInput', bodyRequired: false, response: 'RemovalPreview', example: { mode: 'AUTOMATIC' }, description: 'Owner removes others; members can leave by supplying their own userId. Transfer ownership before the owner can leave. Recalculates allocation under an exclusive project lock; reassigns unfinished active tasks, revokes pending invitations, removes membership, and appends activity atomically. Completed and soft-deleted task history stays intact. Supply mode MANUAL and replacementUserId for owner-selected replacement.' },
   { method: 'post', path: '/api/v1/projects/{projectId}/tasks', summary: 'Create project task', status: 201, body: 'TaskInput', response: 'Task', example: { title: 'Prepare release notes', description: 'Summarize the changes', dueDate: '2027-01-31T12:00:00Z', assigneeId: '{{userId}}' }, save: [{ variable: 'taskId', path: 'id' }], description: 'Any current project member can create a task. Title is required; description defaults to an empty string, status to OPEN, and assignee/due date to null. Date-times require a timezone. Assignees must belong to this project. Project/creator/deletion identifiers cannot be supplied in the body. Creation and activity history commit atomically. Deleted projects reject creation.' },
+  { method: 'get', path: '/api/v1/projects/{projectId}/tasks', summary: 'List project tasks', response: 'TaskList', query: taskParameters, description: 'Members only. Lists non-deleted tasks with status/assignee filters, literal title-description search, pagination, and allowlisted sorting. Due dates sort with nulls last; ID breaks ties. Unknown query fields are rejected.' },
+  { method: 'get', path: '/api/v1/projects/{projectId}/tasks/{taskId}', summary: 'View project task', response: 'Task', description: 'Current members only. Missing tasks, tasks in another project, and deleted tasks/projects return 404.' },
+  { method: 'get', path: '/api/v1/tasks', summary: 'Discover accessible tasks', response: 'TaskList', query: [...taskParameters.map(parameter => parameter.name === 'assigneeId' ? { ...parameter, example: 'me' } : parameter), { name: 'projectId', schema: { type: 'string', format: 'uuid' } }], description: 'Lists tasks only across current memberships in active projects. Use assigneeId=me for assigned-to-me, a UUID for a specific assignee, or unassigned. An inaccessible project filter returns an empty list. Search treats percent, underscore, and backslash literally.' },
 ];
 
 /** Publish explicit success/error schemas and parameters for every documented endpoint. */

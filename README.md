@@ -303,3 +303,27 @@ session and the project from the path; protected/unknown body fields are rejecte
 Creation and its activity record commit atomically under the project lock, which
 also coordinates assignment with member removal. Deleted projects return 404.
 The response contains the task record; Postman saves its ID as `taskId`.
+
+## Reading and finding tasks
+
+Read a task at `GET /api/v1/projects/{projectId}/tasks/{taskId}` or list a project's
+tasks at `GET /api/v1/projects/{projectId}/tasks`. Discover tasks across your current
+project memberships with `GET /api/v1/tasks`. All require a bearer token.
+
+```sh
+curl 'http://localhost:3000/api/v1/tasks?assigneeId=me&status=OPEN&sortBy=dueDate&sortOrder=asc' \
+  -H 'Authorization: Bearer <token>'
+```
+
+Both lists accept `status`, `assigneeId` (a UUID, `me`, or `unassigned`), `search`,
+`sortBy`, `sortOrder`, `page`, and `limit`. Cross-project discovery also accepts
+`projectId`. Search is a case-insensitive literal substring of title or description;
+percent signs, underscores, and backslashes are treated literally. Sorting accepts
+only `createdAt`, `updatedAt`, `dueDate`, `title`, or `status`; default ordering is
+`createdAt desc`, followed by ID ascending. Tasks without due dates sort last.
+
+Pagination defaults to page 1 and limit 20 (maximum 100) and returns `items`, `total`,
+`page`, and `limit`. Unknown query fields are rejected. Deleted tasks/projects stay
+hidden, including from assigned-to-me results. An inaccessible project filter on
+cross-project discovery returns an empty list; direct resource access returns 404.
+Postman's discovery example defaults to `assigneeId=me`.
