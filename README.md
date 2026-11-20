@@ -35,3 +35,34 @@ Errors use `{ "error": { "code": "...", "message": "..." } }`, with validation
 details when applicable. JSON bodies are limited to 100 KB. Responses include an
 `X-Request-Id` for correlation with structured logs; authorization and cookie headers
 are redacted. Set `CORS_ORIGIN` to your frontend URL.
+
+## PostgreSQL and Docker
+
+Docker Desktop is required for the local database containers.
+
+```sh
+docker compose up -d db
+npm run db:generate
+npm run db:migrate
+npm run dev
+```
+
+`GET /ready` queries PostgreSQL and returns 503 when unavailable; `/health` stays
+independent of database availability. Models and migrations arrive with each feature.
+For the complete container setup, run `docker compose up --build -d`. A separate
+migration job finishes before the API starts. The API runs as a nonroot user in a
+runtime image without TypeScript, test tools, or the Prisma CLI. Database and upload
+volumes persist across restarts. The supplied database credentials are for local use.
+
+## Isolated integration tests
+
+```sh
+npm run db:test:up
+npm run test:integration
+```
+
+`TEST_DATABASE_URL` points to `task_management_test` on port 5433; development uses
+`task_management_dev` on port 5432. The test runner refuses missing URLs or database
+names without the `_test` suffix before running migrations. Test PostgreSQL uses
+temporary storage and never falls back to `DATABASE_URL`. CI provisions its own
+PostgreSQL service and runs the same tests. `npm test` runs tests without a database.

@@ -1,0 +1,61 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: taskapp
+      POSTGRES_PASSWORD: taskapp
+      POSTGRES_DB: task_management_dev
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U taskapp -d task_management_dev']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  migrate:
+    build:
+      context: .
+      target: migrations
+    environment:
+      DATABASE_URL: postgresql://taskapp:taskapp@db:5432/task_management_dev?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+  api:
+    build:
+      context: .
+      target: runtime
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://taskapp:taskapp@db:5432/task_management_dev?schema=public
+      NODE_ENV: production
+    ports:
+      - '3000:3000'
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+  test-db:
+    image: postgres:17-alpine
+    profiles: [test]
+    environment:
+      POSTGRES_USER: taskapp
+      POSTGRES_PASSWORD: taskapp
+      POSTGRES_DB: task_management_test
+    ports:
+      - '127.0.0.1:5433:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U taskapp -d task_management_test']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+volumes:
+  postgres_data:
+  uploads:

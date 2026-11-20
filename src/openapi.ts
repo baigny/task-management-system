@@ -4,5 +4,6 @@ export const openapi = {
   servers: [{ url: '/' }],
   paths: {
     '/health': { get: { summary: 'Process health', responses: { 200: { description: 'Healthy' } } } },
+    '/ready': { get: { summary: 'Database readiness', responses: { 200: { description: 'Ready' }, 503: { description: 'Database unavailable' } } } },
   },
 };
