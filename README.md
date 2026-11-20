@@ -168,6 +168,24 @@ attachment paths, passwords, or tokens. History is read-only and newest first.
 Current members can inspect active project/task history; owners can also inspect
 trash. Task purge preserves project history, while project purge removes it.
 
+### Notifications
+
+`GET /api/v1/notifications` returns the current account's paginated inbox with
+readable messages, actor/project/task context, and `unreadCount`. Filter with
+`unread=true`, `unread=false`, or `projectId`. `GET /notifications/unread-count`
+returns the badge count. All paths use `/api/v1` and bearer authentication.
+
+Use `PATCH /notifications/{notificationId}/read` to mark one notice read, or
+`PATCH /notifications/read-all` with optional `{ "projectId": "<id>" }` for bulk
+reading. Repeated reads preserve the original timestamp. Task assignments, edits,
+deletion/restoration, comments/replies, and attachment changes notify affected
+members; self-notifications and duplicate recipients are suppressed. No-op task
+updates send nothing. Notices commit with their originating change.
+
+Removed members and deleted projects are excluded from every inbox/read query.
+Hidden tasks expose only their deletion notice; task/project purge cascades notices.
+Messages use current authorized context without storing comment/file contents.
+
 ### Error responses
 
 Errors use `{ "error": { "code": "...", "message": "..." } }`; validation errors
@@ -225,4 +243,4 @@ scripts/         Documentation and test tooling
 
 The application is API-only and uses one API instance for local-file storage and
 cleanup. Invitation tokens are shared manually; invitation email delivery is not
-included. Notifications, SSE, and Gemini assistance are not implemented yet.
+included. SSE and Gemini assistance are not implemented yet.

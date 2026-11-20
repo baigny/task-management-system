@@ -12,6 +12,7 @@ import { authRoutes, profileRoutes } from './auth/routes.js';
 import { invitationRoutes } from './invitations/routes.js';
 import { taskDiscoveryRoutes } from './tasks/routes.js';
 import { projectRoutes } from './projects/routes.js';
+import { notificationRoutes } from './notifications/routes.js';
 
 /** Inject readiness checks for outage tests without replacing the real database globally. */
 export function createApp(checkDatabase: () => Promise<unknown> = () => db.$queryRaw`SELECT 1`) {
@@ -32,6 +33,7 @@ export function createApp(checkDatabase: () => Promise<unknown> = () => db.$quer
   app.use('/api/v1/users/me', profileRoutes);
   app.use('/api/v1/projects', projectRoutes);
   app.use('/api/v1/tasks', taskDiscoveryRoutes);
+  app.use('/api/v1/notifications', notificationRoutes);
   app.use('/api/v1/invitations', invitationRoutes);
   app.use((_req, _res, next) => { next(new ApiError(404, 'NOT_FOUND', 'Resource not found')); });
   app.use(errorHandler);

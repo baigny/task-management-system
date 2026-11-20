@@ -6,6 +6,7 @@ import { allocateTasks } from '../tasks/allocation.js';
 import { automaticCandidates, loadWorkloads, unfinishedTaskWhere } from '../tasks/assignment.js';
 import type { RemovalInput } from './validation.js';
 import type { RemovalPreview } from './types.js';
+import { notifyMembers } from '../notifications/write.js';
 
 /** Validate removal rights and produce a current workload plan under the project lock. */
 async function removalPlan(tx: Transaction, project: Project, actorId: string, targetId: string, input: RemovalInput) {
@@ -55,6 +56,7 @@ export function removeMember(projectId: string, actorId: string, targetId: strin
     await tx.invitation.updateMany({ where: { projectId, email: plan.targetEmail, acceptedAt: null, revokedAt: null }, data: { revokedAt: new Date() } });
     await tx.membership.delete({ where: { projectId_userId: { projectId, userId: targetId } } });
     await recordActivity(tx, projectId, actorId, actorId === targetId ? 'MEMBER_LEFT' : 'MEMBER_REMOVED', targetId, { mode: input.mode, reassignedTasks: plan.assignments.length });
+    await notifyMembers(tx, projectId, actorId, plan.assignments.map(assignment => ({ taskId: assignment.taskId, userId: assignment.assigneeId, type: 'TASK_ASSIGNED', metadata: { reason: 'MEMBER_REMOVAL' } })));
     return plan.preview;
   });
 }

@@ -4,6 +4,7 @@ import { recordActivity } from '../activity.js';
 import { validateAssignee } from './assignment.js';
 import { requireTask } from './access.js';
 import type { TaskInput, TaskUpdate } from './validation.js';
+import { notifyMembers } from '../notifications/write.js';
 
 /** Create a task only within an active project and validate its optional assignee under the same lock. */
 export function createTask(projectId: string, userId: string, input: TaskInput): Promise<Task> {
@@ -11,6 +12,7 @@ export function createTask(projectId: string, userId: string, input: TaskInput):
     await validateAssignee(tx, projectId, input.assigneeId);
     const task = await tx.task.create({ data: { ...input, projectId, createdById: userId } });
     await recordActivity(tx, projectId, userId, 'TASK_CREATED', task.id, { status: task.status, assigneeId: task.assigneeId });
+    await notifyMembers(tx, projectId, userId, [{ taskId: task.id, userId: task.assigneeId, type: 'TASK_ASSIGNED' }]);
     return task;
   });
 }
@@ -42,6 +44,9 @@ export function updateTask(projectId: string, userId: string, taskId: string, in
     if (updated.assigneeId !== task.assigneeId) {
       await recordActivity(tx, projectId, userId, 'TASK_REASSIGNED', task.id, { previousAssigneeId: task.assigneeId, assigneeId: updated.assigneeId, reason: 'TASK_UPDATE' });
     }
+    await notifyMembers(tx, projectId, userId, updated.assigneeId !== task.assigneeId
+      ? [{ taskId, userId: task.assigneeId, type: 'TASK_UNASSIGNED', metadata: { fields } }, { taskId, userId: updated.assigneeId, type: 'TASK_ASSIGNED', metadata: { fields } }]
+      : [{ taskId, userId: updated.assigneeId, type: 'TASK_UPDATED', metadata: { fields } }]);
     return updated;
   });
 }

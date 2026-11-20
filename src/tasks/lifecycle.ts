@@ -6,6 +6,7 @@ import { requireTask } from './access.js';
 import { automaticCandidates, loadWorkloads } from './assignment.js';
 import { allocateTasks } from './allocation.js';
 import { queueTaskFiles } from '../attachments/cleanup.js';
+import { notifyMembers } from '../notifications/write.js';
 
 /** Let any current member soft-delete an active task without destroying its history. */
 export function deleteTask(projectId: string, userId: string, taskId: string) {
@@ -13,6 +14,7 @@ export function deleteTask(projectId: string, userId: string, taskId: string) {
     const task = await requireTask(tx, projectId, taskId);
     await tx.task.update({ where: { id: task.id }, data: { deletedAt: new Date(), deletedById: userId } });
     await recordActivity(tx, projectId, userId, 'TASK_DELETED', task.id);
+    await notifyMembers(tx, projectId, userId, [{ taskId, userId: task.assigneeId, type: 'TASK_DELETED' }]);
   });
 }
 
@@ -34,6 +36,7 @@ export function restoreTask(projectId: string, userId: string, taskId: string): 
     if (assigneeId !== task.assigneeId) {
       await recordActivity(tx, projectId, userId, 'TASK_REASSIGNED', task.id, { previousAssigneeId: task.assigneeId, assigneeId, reason: 'TASK_RESTORE' });
     }
+    await notifyMembers(tx, projectId, userId, [{ taskId, userId: assigneeId, type: assigneeId !== task.assigneeId ? 'TASK_ASSIGNED' : 'TASK_RESTORED' }]);
     return restored;
   }, { ownerOnly: true });
 }

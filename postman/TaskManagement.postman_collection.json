@@ -11,6 +11,137 @@
   ],
   "item": [
     {
+      "name": "List notification inbox",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/notifications",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Recipient-only, newest ID first. Includes readable messages, public actor, current project/task context, and accessible unread count. Current membership and active project required. Soft-deleted tasks expose only deletion notices. Unread count ignores the read/unread filter but respects projectId. No-op edits and self-notifications are suppressed. Notifications persist in the originating transaction and cascade on task/project purge."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Count unread notifications",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/notifications/unread-count",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Counts only the authenticated recipient notices accessible under current membership and lifecycle rules."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mark notification read",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/api/v1/notifications/{{notificationId}}/read",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Recipient only. Missing, other-recipient, or inaccessible notices return 404. Repeated/concurrent reads preserve the first readAt timestamp."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mark all notifications read",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/api/v1/notifications/read-all",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Marks only current accessible unread notices, optionally filtered by projectId. Returns updatedCount; repeated calls return zero.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "List task activity history",
       "request": {
         "method": "GET",

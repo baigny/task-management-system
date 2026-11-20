@@ -27,6 +27,8 @@ model User {
   deletedTasks Task[] @relation("TaskDeletedBy")
   comments Comment[]
   attachments Attachment[]
+  notifications Notification[] @relation("NotificationRecipient")
+  sentNotifications Notification[] @relation("NotificationActor")
 }
 
 model Session {
@@ -71,6 +73,7 @@ model Project {
   activities Activity[]
   invitations Invitation[]
   tasks Task[]
+  notifications Notification[]
   @@index([ownerId])
   @@index([deletedAt, createdAt])
 }
@@ -143,6 +146,7 @@ model Task {
   comments Comment[]
   attachments Attachment[]
   activities Activity[]
+  notifications Notification[]
   @@index([projectId, deletedAt, status, assigneeId])
   @@index([assigneeId, status])
   @@index([projectId, createdAt, id])
@@ -185,4 +189,37 @@ model FileCleanup {
   storageKey String @id
   availableAt DateTime @default(now())
   @@index([availableAt, storageKey])
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_UNASSIGNED
+  TASK_UPDATED
+  TASK_DELETED
+  TASK_RESTORED
+  COMMENT_ADDED
+  COMMENT_REPLIED
+  ATTACHMENT_ADDED
+  ATTACHMENT_DELETED
+}
+
+model Notification {
+  id Int @id @default(autoincrement())
+  userId String
+  user User @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actorId String?
+  actor User? @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  taskId String
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  type NotificationType
+  metadata Json @default("{}")
+  createdAt DateTime @default(now())
+  readAt DateTime?
+  @@index([userId, id])
+  @@index([userId, readAt, id])
+  @@index([projectId])
+  @@index([taskId])
+  @@index([actorId])
 }

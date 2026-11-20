@@ -5,20 +5,27 @@ import { ApiError } from '../errors.js';
 import { requireTask } from '../tasks/access.js';
 import { pageArgs } from '../validation.js';
 import type { CommentInput, CommentQuery } from './validation.js';
+import { notifyMembers } from '../notifications/write.js';
 
 const include = { author: { select: publicUser }, _count: { select: { replies: true } } } as const;
 
 /** Create a thread or a direct reply to a root comment on the same accessible task. */
 export function createComment(projectId: string, userId: string, taskId: string, input: CommentInput) {
   return inProject(projectId, userId, async tx => {
-    await requireTask(tx, projectId, taskId);
+    const task = await requireTask(tx, projectId, taskId);
+    let parentAuthorId: string | null = null;
     if (input.parentId) {
       const parent = await tx.comment.findFirst({ where: { id: input.parentId, taskId } });
       if (!parent) throw new ApiError(404, 'NOT_FOUND', 'Comment thread not found');
       if (parent.parentId) throw new ApiError(400, 'INVALID_PARENT', 'Reply to the thread root');
+      parentAuthorId = parent.authorId;
     }
     const comment = await tx.comment.create({ data: { taskId, authorId: userId, ...input }, include });
     await recordActivity(tx, projectId, userId, 'COMMENT_CREATED', comment.id, { taskId, parentId: comment.parentId });
+    await notifyMembers(tx, projectId, userId, [
+      { taskId, userId: task.assigneeId, type: 'COMMENT_ADDED', metadata: { commentId: comment.id } },
+      { taskId, userId: parentAuthorId, type: 'COMMENT_REPLIED', metadata: { commentId: comment.id, parentId: comment.parentId } },
+    ]);
     return comment;
   });
 }
