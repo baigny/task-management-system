@@ -8,6 +8,7 @@ import { config } from './config.js';
 import { ApiError, errorHandler } from './errors.js';
 import { openapi } from './openapi.js';
 import { db } from './db.js';
+import { authRoutes } from './auth/routes.js';
 
 /** Inject readiness checks for outage tests without replacing the real database globally. */
 export function createApp(checkDatabase: () => Promise<unknown> = () => db.$queryRaw`SELECT 1`) {
@@ -24,6 +25,7 @@ export function createApp(checkDatabase: () => Promise<unknown> = () => db.$quer
   });
   app.get('/openapi.json', (_req, res) => { res.json(openapi); });
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapi));
+  app.use('/api/v1/auth', authRoutes);
   app.use((_req, _res, next) => { next(new ApiError(404, 'NOT_FOUND', 'Resource not found')); });
   app.use(errorHandler);
   return app;

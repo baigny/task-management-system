@@ -83,3 +83,22 @@ npm run check
 API contract. Tests validate OpenAPI and the served specification. Postman includes
 response status checks, and the collection's `baseUrl` is configurable.
 `npm run typecheck` also checks test and tooling code. All of these checks run in CI.
+
+## Registration and login
+
+Register at `POST /api/v1/auth/register` with `email`, `name`, `password`, and
+`confirmPassword`. Passwords must match and contain 12–128 characters; only an
+Argon2id hash is stored. Duplicate emails return 409. Email addresses are normalized
+to lowercase. Login accepts `email` and `password` at `POST /api/v1/auth/login`.
+Both responses include a public `user`, bearer `token`, and `expiresAt` (one hour).
+
+Tokens reference persisted database sessions. Authentication middleware validates
+the token signature, issuer, audience, expiry, and active database session.
+Authentication responses use `Cache-Control: no-store`; credentials never appear
+in returned user profiles.
+
+Registration/login allow 30 requests per IP per 15 minutes. Login also permits five
+failed attempts per normalized email per 15 minutes, followed by a temporary cooldown.
+Unknown accounts and incorrect passwords share the same error. Successful login
+clears its account counter; account counters persist in PostgreSQL.
+Postman automatically stores login/registration tokens.

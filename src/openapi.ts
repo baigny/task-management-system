@@ -13,12 +13,19 @@ export const schemas: Record<string, Schema> = {
   Health: object({ status: { type: 'string', enum: ['ok'] } }),
   Readiness: object({ status: { type: 'string', enum: ['ready'] } }),
   Error: object({ error: object({ code: { type: 'string' }, message: { type: 'string' }, details: { type: 'array', items: { type: 'object' } } }, ['code', 'message']) }),
+  User: object({ id: { type: 'string', format: 'uuid' }, email: { type: 'string', format: 'email' }, name: { type: 'string' }, createdAt: { type: 'string', format: 'date-time' } }),
+  Password: { type: 'string', minLength: 12, maxLength: 128, writeOnly: true },
+  Register: object({ email: { type: 'string', format: 'email', maxLength: 254 }, name: { type: 'string', minLength: 1, maxLength: 100 }, password: ref('Password'), confirmPassword: { allOf: [ref('Password')], description: 'Must match password; never stored.' } }),
+  Login: object({ email: { type: 'string', format: 'email' }, password: { type: 'string', minLength: 1, maxLength: 128, writeOnly: true } }),
+  AuthResult: object({ user: ref('User'), token: { type: 'string' }, expiresAt: { type: 'string', format: 'date-time' } }),
 };
 
 // Both Swagger and Postman consume these operations, so examples change with each feature.
 export const operations: Operation[] = [
   { method: 'get', path: '/health', summary: 'Process health', auth: false, response: 'Health', errors: [500], description: 'Checks the HTTP process independently of PostgreSQL.' },
   { method: 'get', path: '/ready', summary: 'Database readiness', auth: false, response: 'Readiness', errors: [503], description: 'Queries PostgreSQL. Returns DATABASE_UNAVAILABLE when the database cannot be reached.' },
+  { method: 'post', path: '/api/v1/auth/register', summary: 'Register account', auth: false, status: 201, body: 'Register', response: 'AuthResult', example: { email: 'developer@example.com', name: 'Developer', password: 'strong-password-123', confirmPassword: 'strong-password-123' }, save: [{ variable: 'token', path: 'token' }, { variable: 'userId', path: 'user.id' }], description: 'Creates an account and one-hour session. Passwords must match. Duplicate email returns 409. Authentication responses are not cached.' },
+  { method: 'post', path: '/api/v1/auth/login', summary: 'Login', auth: false, body: 'Login', response: 'AuthResult', example: { email: 'developer@example.com', password: 'strong-password-123' }, save: [{ variable: 'token', path: 'token' }, { variable: 'userId', path: 'user.id' }], description: 'Invalid email and password share one response. After five failed attempts per account in 15 minutes, further attempts return 429. Success resets the account counter.' },
 ];
 
 /** Publish explicit success/error schemas and parameters for every documented endpoint. */
@@ -48,5 +55,5 @@ function createPaths() {
 
 export const openapi = {
   openapi: '3.0.3', info: { title: 'Task Management API', version: '1.0.0' }, servers: [{ url: '/' }],
-  components: { schemas }, paths: createPaths(),
+  components: { schemas, securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } } }, paths: createPaths(),
 };
