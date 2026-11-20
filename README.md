@@ -102,3 +102,11 @@ failed attempts per normalized email per 15 minutes, followed by a temporary coo
 Unknown accounts and incorrect passwords share the same error. Successful login
 clears its account counter; account counters persist in PostgreSQL.
 Postman automatically stores login/registration tokens.
+
+## Profile management
+
+Send `Authorization: Bearer <token>` to `GET /api/v1/users/me` to read your account.
+`PATCH /api/v1/users/me` accepts `{ "name": "Updated name" }`. Names are trimmed
+and must contain 1–100 characters. Unknown fields and changes to email, credentials,
+or roles are rejected. Responses contain only `id`, `email`, `name`, and `createdAt`
+and use `Cache-Control: no-store`. The account is always taken from the session.

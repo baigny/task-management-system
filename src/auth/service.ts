@@ -47,3 +47,13 @@ export async function login(input: { email: string; password: string }) {
     return { user: profile, ...await createSession(user, tx) };
   });
 }
+
+/** Fetch the account's allowlisted profile fields, excluding its password hash. */
+export function readProfile(userId: string) {
+  return db.user.findUniqueOrThrow({ where: { id: userId }, select: publicUser });
+}
+
+/** Change only the validated display name for the authenticated account. */
+export function updateProfile(userId: string, input: { name: string }) {
+  return db.user.update({ where: { id: userId }, data: input, select: publicUser });
+}

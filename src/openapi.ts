@@ -18,6 +18,7 @@ export const schemas: Record<string, Schema> = {
   Register: object({ email: { type: 'string', format: 'email', maxLength: 254 }, name: { type: 'string', minLength: 1, maxLength: 100 }, password: ref('Password'), confirmPassword: { allOf: [ref('Password')], description: 'Must match password; never stored.' } }),
   Login: object({ email: { type: 'string', format: 'email' }, password: { type: 'string', minLength: 1, maxLength: 128, writeOnly: true } }),
   AuthResult: object({ user: ref('User'), token: { type: 'string' }, expiresAt: { type: 'string', format: 'date-time' } }),
+  ProfileUpdate: object({ name: { type: 'string', minLength: 1, maxLength: 100 } }),
 };
 
 // Both Swagger and Postman consume these operations, so examples change with each feature.
@@ -26,6 +27,8 @@ export const operations: Operation[] = [
   { method: 'get', path: '/ready', summary: 'Database readiness', auth: false, response: 'Readiness', errors: [503], description: 'Queries PostgreSQL. Returns DATABASE_UNAVAILABLE when the database cannot be reached.' },
   { method: 'post', path: '/api/v1/auth/register', summary: 'Register account', auth: false, status: 201, body: 'Register', response: 'AuthResult', example: { email: 'developer@example.com', name: 'Developer', password: 'strong-password-123', confirmPassword: 'strong-password-123' }, save: [{ variable: 'token', path: 'token' }, { variable: 'userId', path: 'user.id' }], description: 'Creates an account and one-hour session. Passwords must match. Duplicate email returns 409. Authentication responses are not cached.' },
   { method: 'post', path: '/api/v1/auth/login', summary: 'Login', auth: false, body: 'Login', response: 'AuthResult', example: { email: 'developer@example.com', password: 'strong-password-123' }, save: [{ variable: 'token', path: 'token' }, { variable: 'userId', path: 'user.id' }], description: 'Invalid email and password share one response. After five failed attempts per account in 15 minutes, further attempts return 429. Success resets the account counter.' },
+  { method: 'get', path: '/api/v1/users/me', summary: 'View profile', response: 'User', description: 'Returns the authenticated account profile without credentials. Response is not cached.' },
+  { method: 'patch', path: '/api/v1/users/me', summary: 'Update profile', body: 'ProfileUpdate', response: 'User', example: { name: 'Updated Developer' }, description: 'Changes only the display name. Unknown/protected fields are rejected.' },
 ];
 
 /** Publish explicit success/error schemas and parameters for every documented endpoint. */
