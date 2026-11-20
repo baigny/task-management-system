@@ -22,3 +22,8 @@ export async function listProjects(userId: string, page: number, limit: number) 
 export function readProject(projectId: string, userId: string) {
   return inProject(projectId, userId, async (_tx, project) => project);
 }
+
+/** Restrict project detail changes to the current project owner. */
+export function updateProject(projectId: string, userId: string, input: { name?: string; description?: string }) {
+  return inProject(projectId, userId, async (tx, project) => tx.project.update({ where: { id: project.id }, data: input }), true);
+}

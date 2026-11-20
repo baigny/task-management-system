@@ -27,6 +27,7 @@ export const schemas: Record<string, Schema> = {
   ChangePassword: object({ currentPassword: { type: 'string', minLength: 1, maxLength: 128, writeOnly: true }, password: ref('Password'), confirmPassword: { allOf: [ref('Password')], description: 'Must match password.' } }),
   Project: object({ id: { type: 'string', format: 'uuid' }, name: { type: 'string' }, description: { type: 'string' }, ownerId: { type: 'string', format: 'uuid' }, createdAt: { type: 'string', format: 'date-time' } }),
   ProjectList: object({ items: { type: 'array', items: ref('Project') }, total: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' } }),
+  ProjectUpdate: { ...object({ name: { type: 'string', minLength: 1, maxLength: 100 }, description: { type: 'string', maxLength: 5000 } }, []), minProperties: 1 },
   ProjectInput: object({ name: { type: 'string', minLength: 1, maxLength: 100 }, description: { type: 'string', maxLength: 5000, default: '' } }, ['name']),
 };
 
@@ -51,6 +52,7 @@ export const operations: Operation[] = [
   { method: 'post', path: '/api/v1/projects', summary: 'Create project', status: 201, body: 'ProjectInput', response: 'Project', example: { name: 'Release', description: 'Coordinate the release' }, save: [{ variable: 'projectId', path: 'id' }], description: 'Creates the project and its owner membership atomically.' },
   { method: 'get', path: '/api/v1/projects', summary: 'List projects', response: 'ProjectList', query: pageParameters, description: 'Lists only projects the authenticated user belongs to, newest first with an ID tie-breaker.' },
   { method: 'get', path: '/api/v1/projects/{projectId}', summary: 'View project', response: 'Project', description: 'Members only. Nonmembers receive 404.' },
+  { method: 'patch', path: '/api/v1/projects/{projectId}', summary: 'Update project', body: 'ProjectUpdate', response: 'Project', example: { name: 'Updated release' }, description: 'Owner only. Requires at least one supported field. Omitted fields remain unchanged; ownership changes are rejected.' },
 ];
 
 /** Publish explicit success/error schemas and parameters for every documented endpoint. */

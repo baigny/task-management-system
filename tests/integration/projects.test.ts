@@ -48,4 +48,22 @@ describe('project creation', () => {
     await request(app).get('/api/v1/projects?limit=101').set(auth()).expect(400);
     await request(app).get('/api/v1/projects?page=0').set(auth()).expect(400);
   });
+  it('allows only owners to update details and preserves omitted fields', async () => {
+    const project = await db.project.findFirstOrThrow({ where: { ownerId: users[0].id, description: 'Ship the release' } });
+    await request(app).patch(`/api/v1/projects/${project.id}`).send({ name: 'No auth' }).expect(401);
+    await request(app).patch(`/api/v1/projects/${project.id}`).set(auth(1)).send({ name: 'Forbidden' }).expect(403);
+    const updated = await request(app).patch(`/api/v1/projects/${project.id}`).set(auth()).send({ name: ' Updated ' }).expect(200);
+    expect(updated.body).toMatchObject({ name: 'Updated', description: 'Ship the release', ownerId: users[0].id });
+    const cleared = await request(app).patch(`/api/v1/projects/${project.id}`).set(auth()).send({ description: '' }).expect(200);
+    expect(cleared.body).toMatchObject({ name: 'Updated', description: '' });
+  });
+  it('rejects invalid and protected update fields without modifying the project', async () => {
+    const project = await db.project.findFirstOrThrow({ where: { ownerId: users[0].id } });
+    for (const input of [{}, { name: ' ' }, { name: 'x'.repeat(101) }, { description: 'x'.repeat(5001) }, { ownerId: users[1].id }]) {
+      await request(app).patch(`/api/v1/projects/${project.id}`).set(auth()).send(input).expect(400);
+    }
+    expect(await db.project.findUnique({ where: { id: project.id } })).toEqual(project);
+    const privateProject = await db.project.create({ data: { name: 'Private', ownerId: users[0].id, memberships: { create: { userId: users[0].id } } } });
+    await request(app).patch(`/api/v1/projects/${privateProject.id}`).set(auth(1)).send({ name: 'Hidden' }).expect(404);
+  });
 });

@@ -164,3 +164,10 @@ Read an individual project at `GET /api/v1/projects/{projectId}`. Nonmembers
 receive 404. Lists accept `page` (default 1) and `limit` (default 20, maximum 100),
 returning `{ "items": [], "total": 0, "page": 1, "limit": 20 }`.
 Projects are ordered newest first with an ID tie-breaker for consistent pagination.
+
+## Updating projects
+
+Only the project owner can call `PATCH /api/v1/projects/{projectId}` with `name`,
+`description`, or both. At least one field is required. Omitted fields retain their
+values; `description: ""` explicitly clears the description. Members receive 403,
+and nonmembers receive 404. Unknown fields, including `ownerId`, are rejected.
