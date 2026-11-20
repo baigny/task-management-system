@@ -13,6 +13,7 @@ npm ci
 cp .env.example .env
 # Generate a JWT secret and paste it into .env; never commit the output.
 node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"
+npm run db:generate
 npm run check
 ```
 
@@ -66,3 +67,19 @@ npm run test:integration
 names without the `_test` suffix before running migrations. Test PostgreSQL uses
 temporary storage and never falls back to `DATABASE_URL`. CI provisions its own
 PostgreSQL service and runs the same tests. `npm test` runs tests without a database.
+
+## Maintaining API examples
+
+Swagger and Postman share endpoint metadata in `src/openapi.ts`. When implementing
+a feature, update its request/response schemas and examples in the same commit as
+the routes, services, comments, tests, and README instructions. Run:
+
+```sh
+npm run docs:postman
+npm run check
+```
+
+`npm run docs:check` fails when the checked-in Postman collection differs from the
+API contract. Tests validate OpenAPI and the served specification. Postman includes
+response status checks, and the collection's `baseUrl` is configurable.
+`npm run typecheck` also checks test and tooling code. All of these checks run in CI.
