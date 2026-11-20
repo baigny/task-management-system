@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { taskRoutes } from '../tasks/routes.js';
 import { listMembers, transferOwnership, previewMemberRemoval, removeProjectMember } from '../members/controller.js';
 import { inviteMember, listInvitations, revokeInvitation } from '../invitations/controller.js';
 import { authenticate, noStore } from '../auth/middleware.js';
@@ -21,3 +22,4 @@ projectRoutes.get('/:projectId/members', listMembers);
 projectRoutes.post('/:projectId/ownership', transferOwnership);
 projectRoutes.post('/:projectId/members/:userId/removal-preview', previewMemberRemoval);
 projectRoutes.delete('/:projectId/members/:userId', removeProjectMember);
+projectRoutes.use('/:projectId/tasks', taskRoutes);

@@ -278,3 +278,28 @@ Completed and soft-deleted tasks retain their historical assignments; task resto
 will validate departed assignees when the task lifecycle API is added. Bulk writes
 and activity inserts are grouped in bounded batches. Permanent project purge now
 cascades task records. Task CRUD HTTP endpoints follow in a separate functional batch.
+
+## Creating tasks
+
+Any current project member can call `POST /api/v1/projects/{projectId}/tasks`:
+
+```json
+{
+  "title": "Prepare release notes",
+  "description": "Summarize the changes",
+  "dueDate": "2027-01-31T12:00:00Z",
+  "status": "OPEN",
+  "assigneeId": "<current project member UUID>"
+}
+```
+
+Only `title` is required (trimmed, 1?200 characters). Description allows up to 10,000
+characters and defaults to an empty string. Status defaults to `OPEN`; supported
+statuses are `OPEN`, `IN_PROGRESS`, and `COMPLETED`. Due dates require a timezone;
+`dueDate` and `assigneeId` may be omitted or explicitly null. Past due dates are valid.
+
+Assignees must currently belong to the same project. The creator comes from the
+session and the project from the path; protected/unknown body fields are rejected.
+Creation and its activity record commit atomically under the project lock, which
+also coordinates assignment with member removal. Deleted projects return 404.
+The response contains the task record; Postman saves its ID as `taskId`.
