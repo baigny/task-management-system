@@ -18,8 +18,3 @@ export async function takeAccountAttempt(scope: string, email: string, limit: nu
     RETURNING "count"`;
   if (attempt.count > limit) throw new ApiError(429, 'RATE_LIMITED', 'Too many attempts; try again later', 900);
 }
-
-/** Clear a completed operation's cooldown after its security checks succeed. */
-export function clearAccountAttempts(scope: string, email: string) {
-  return db.authAttempt.deleteMany({ where: { key: accountKey(scope, email) } });
-}

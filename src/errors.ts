@@ -7,7 +7,7 @@ export class ApiError extends Error {
 }
 
 /** Expose expected client errors; keep database and internal details private. */
-export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
+export const errorHandler: ErrorRequestHandler = (error: unknown, req, res, _next) => {
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
     res.status(409).json({ error: { code: 'CONFLICT', message: 'Resource already exists' } });
     return;
@@ -21,8 +21,8 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
     res.status(error.status).json({ error: { code: error.code, message: error.message } });
     return;
   }
-  if (error?.type === 'entity.parse.failed' || error?.type === 'entity.too.large') {
-    res.status(error.status).json({ error: { code: 'INVALID_BODY', message: 'Invalid or oversized JSON body' } });
+  if (error && typeof error === 'object' && 'type' in error && (error.type === 'entity.parse.failed' || error.type === 'entity.too.large')) {
+    res.status(error.type === 'entity.too.large' ? 413 : 400).json({ error: { code: 'INVALID_BODY', message: 'Invalid or oversized JSON body' } });
     return;
   }
   req.log.error({ err: error }, 'Request failed');

@@ -6,7 +6,7 @@ export function postmanCollection() {
     info: { name: 'Task Management API', schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },
     variable: [{ key: 'baseUrl', value: 'http://localhost:3000' }],
     item: operations.map(operation => {
-      const query = (operation.query ?? []).filter(value => value.example !== undefined).map(value => `${encodeURIComponent(value.name)}=${encodeURIComponent(value.example!)}`).join('&');
+      const query = (operation.query ?? []).flatMap(value => value.example === undefined ? [] : [`${encodeURIComponent(value.name)}=${encodeURIComponent(value.example)}`]).join('&');
       return {
         name: operation.summary,
         request: {

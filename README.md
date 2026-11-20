@@ -3,6 +3,8 @@
 Collaborative task management REST API built with Express, TypeScript, and PostgreSQL.
 
 Development takes place on `feat-task-management`, branched from `main`.
+See the [implementation tracker](docs/IMPLEMENTATION_TRACKER.md) for brief coverage,
+remaining work, and code review decisions.
 
 ## Local setup
 
@@ -50,8 +52,9 @@ npm run dev
 
 `GET /ready` queries PostgreSQL and returns 503 when unavailable; `/health` stays
 independent of database availability. Models and migrations arrive with each feature.
-For the complete container setup, run `docker compose up --build -d`. A separate
-migration job finishes before the API starts. The API runs as a nonroot user in a
+For the complete container setup, run `docker compose up --build -d --wait`. A separate
+migration job finishes before the API starts, and Compose waits for the API readiness
+health check. The API port follows `PORT` and binds to localhost for local development. The API runs as a nonroot user in a
 runtime image without TypeScript, test tools, or the Prisma CLI. Database and upload
 volumes persist across restarts. The supplied database credentials are for local use.
 
@@ -226,3 +229,13 @@ belong to the project; the previous owner remains a member. Owner privileges mov
 immediately and the activity record commits with the transfer. Concurrent transfers
 are serialized so the project retains exactly one owner. Deleted projects cannot
 change ownership. Set `replacementUserId` in Postman to try the example.
+
+## Type safety and access control
+
+Run `npm run db:generate` after schema changes to refresh Prisma model types.
+Service DTOs are derived from Zod validation, public database projections use Prisma
+payload types, and OpenAPI schemas/operations are checked against OpenAPI types.
+Public requests have no assumed authentication context; protected controllers use a
+checked accessor. Project reads use shared locks so they can proceed concurrently,
+while ownership, membership, and lifecycle mutations use exclusive project locks.
+Regression tests cover JWT issuer/audience/algorithm rejection and read/write locking.

@@ -9,3 +9,6 @@ export const projectUpdate = z.object(fields).partial().strict()
   .refine(value => Object.keys(value).length > 0, 'At least one project field is required');
 
 export const projectListQuery = pagination.extend({ deleted: z.enum(['true', 'false']).default('false').transform(value => value === 'true') });
+
+export type ProjectInput = z.output<typeof projectInput>;
+export type ProjectUpdate = z.output<typeof projectUpdate>;

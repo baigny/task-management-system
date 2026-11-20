@@ -7,3 +7,5 @@ export const pagination = z.object({
 
 /** Translate validated pagination into bounded database offset/limit arguments. */
 export function pageArgs(page: number, limit: number) { return { skip: (page - 1) * limit, take: limit }; }
+
+export type Page<T> = { items: T[]; total: number; page: number; limit: number };

@@ -1,4 +1,6 @@
-export type Schema = Record<string, unknown>;
+import type { OpenAPIV3 } from 'openapi-types';
+
+export type Schema = OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject;
 export type Operation = {
   method: 'get' | 'post' | 'patch' | 'delete'; path: string; summary: string;
   description?: string; auth?: boolean; status?: number; errors?: number[];
@@ -8,9 +10,9 @@ export type Operation = {
   save?: { variable: string; path: string }[];
 };
 /** Reference a reusable request or response schema. */
-export const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
+export const ref = (name: string): OpenAPIV3.ReferenceObject => ({ $ref: `#/components/schemas/${name}` });
 /** Describe closed objects, omitting the OpenAPI required list for entirely optional fields. */
-export const object = (properties: Record<string, Schema>, required = Object.keys(properties)): Schema => ({ type: 'object', properties, ...(required.length ? { required } : {}), additionalProperties: false });
+export const object = (properties: Record<string, Schema>, required = Object.keys(properties)): OpenAPIV3.SchemaObject => ({ type: 'object', properties, ...(required.length ? { required } : {}), additionalProperties: false });
 export const schemas: Record<string, Schema> = {
   Health: object({ status: { type: 'string', enum: ['ok'] } }),
   Readiness: object({ status: { type: 'string', enum: ['ready'] } }),
@@ -39,7 +41,7 @@ export const schemas: Record<string, Schema> = {
   ProjectInput: object({ name: { type: 'string', minLength: 1, maxLength: 100 }, description: { type: 'string', maxLength: 5000, default: '' } }, ['name']),
 };
 
-export const pageParameters = [
+export const pageParameters: NonNullable<Operation['query']> = [
   { name: 'page', schema: { type: 'integer', minimum: 1, maximum: 100000, default: 1 } },
   { name: 'limit', schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 } },
 ];
@@ -75,21 +77,21 @@ export const operations: Operation[] = [
 
 /** Publish explicit success/error schemas and parameters for every documented endpoint. */
 function createPaths() {
-  const paths: Record<string, Record<string, unknown>> = {};
+  const paths: OpenAPIV3.PathsObject = {};
   for (const operation of operations) {
     const status = operation.status ?? 200;
-    const responses: Record<string, unknown> = {
+    const responses: OpenAPIV3.ResponsesObject = {
       [status]: { description: 'Success', ...(status === 204 ? {} : { content: { [operation.responseContentType ?? 'application/json']: { schema: operation.response ? ref(operation.response) : { type: 'object' } } } }) },
     };
     for (const code of operation.errors ?? [400, 401, 403, 404, 409, 429, 500]) {
       responses[code] = { description: 'Error; see error.code and error.message', content: { 'application/json': { schema: ref('Error') } } };
     }
-    const parameters = [
-      ...[...operation.path.matchAll(/\{(\w+)\}/g)].map(match => ({ name: match[1], in: 'path', required: true, schema: match[1] === 'notificationId' ? { type: 'integer', minimum: 1 } : { type: 'string', format: 'uuid' } })),
-      ...(operation.query ?? []).map(query => ({ name: query.name, in: 'query', required: false, description: query.description, schema: query.schema })),
+    const parameters: OpenAPIV3.ParameterObject[] = [
+      ...[...operation.path.matchAll(/\{(\w+)\}/g)].map<OpenAPIV3.ParameterObject>(match => ({ name: match[1], in: 'path', required: true, schema: match[1] === 'notificationId' ? { type: 'integer', minimum: 1 } : { type: 'string', format: 'uuid' } })),
+      ...(operation.query ?? []).map<OpenAPIV3.ParameterObject>(query => ({ name: query.name, in: 'query', required: false, description: query.description, schema: query.schema })),
     ];
-    paths[operation.path] ??= {};
-    paths[operation.path][operation.method] = {
+    const path = paths[operation.path] ??= {};
+    path[operation.method] = {
       summary: operation.summary, description: operation.description, responses, parameters,
       security: operation.auth === false ? [] : [{ bearerAuth: [] }],
       ...(operation.body ? { requestBody: { required: true, content: { [operation.requestContentType ?? 'application/json']: { schema: ref(operation.body), example: operation.example } } } } : {}),
@@ -98,7 +100,7 @@ function createPaths() {
   return paths;
 }
 
-export const openapi = {
+export const openapi: OpenAPIV3.Document = {
   openapi: '3.0.3', info: { title: 'Task Management API', version: '1.0.0' }, servers: [{ url: '/' }],
   components: { schemas, securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } } }, paths: createPaths(),
 };

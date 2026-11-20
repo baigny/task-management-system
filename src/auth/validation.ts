@@ -15,3 +15,15 @@ export const resetInput = newPassword.extend({ token: z.string().regex(/^[a-f0-9
   .refine(value => value.password === value.confirmPassword, { path: ['confirmPassword'], message: 'Passwords must match' });
 export const changeInput = newPassword.extend({ currentPassword: z.string().min(1).max(128) })
   .refine(value => value.password === value.confirmPassword, { path: ['confirmPassword'], message: 'Passwords must match' });
+
+export const profileUpdate = z.object({ name }).strict();
+export const forgotInput = z.object({ email }).strict();
+export const sessionClaims = z.object({ sub: z.string().uuid(), sid: z.string().uuid(), exp: z.number().int().positive() });
+
+// Derive service inputs from validation so schema changes cannot leave DTOs behind.
+export type RegistrationData = Pick<z.output<typeof registration>, 'email' | 'name' | 'password'>;
+export type CredentialsInput = z.output<typeof credentials>;
+export type ProfileUpdateInput = z.output<typeof profileUpdate>;
+export type ResetPasswordData = Pick<z.output<typeof resetInput>, 'token' | 'password'>;
+export type ChangePasswordData = Pick<z.output<typeof changeInput>, 'currentPassword' | 'password'>;
+export type SessionClaims = z.output<typeof sessionClaims>;

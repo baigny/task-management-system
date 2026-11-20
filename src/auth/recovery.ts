@@ -3,6 +3,7 @@ import argon2 from 'argon2';
 import { db } from '../db.js';
 import { config } from '../config.js';
 import { ApiError } from '../errors.js';
+import type { ResetPasswordData, ChangePasswordData } from './validation.js';
 import { hashPassword } from './service.js';
 import { accountKey, takeAccountAttempt } from './throttle.js';
 import { sendResetEmail } from './mail.js';
@@ -53,7 +54,7 @@ export function enqueuePasswordReset(email: string, onFailure: () => void) {
 export async function drainRecoveryJobs() { await Promise.allSettled([...pending]); }
 
 /** Consume one reset token atomically, replace the password, and revoke all other access. */
-export async function resetPassword(input: { token: string; password: string }) {
+export async function resetPassword(input: ResetPasswordData) {
   const found = await db.passwordReset.findUnique({ where: { tokenHash: resetTokenHash(input.token) } });
   if (!found || found.expiresAt <= new Date()) throw new ApiError(400, 'INVALID_RESET_TOKEN', 'Reset token is invalid or expired');
   const passwordHash = await hashPassword(input.password);
@@ -69,7 +70,7 @@ export async function resetPassword(input: { token: string; password: string }) 
 }
 
 /** Require the current password and a still-valid session before changing credentials. */
-export async function changePassword(userId: string, sessionId: string, input: { currentPassword: string; password: string }) {
+export async function changePassword(userId: string, sessionId: string, input: ChangePasswordData) {
   const user = await db.user.findUniqueOrThrow({ where: { id: userId } });
   await takeAccountAttempt('change-password', user.email, 5);
   if (!await argon2.verify(user.passwordHash, input.currentPassword)) throw new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid current password');

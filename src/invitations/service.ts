@@ -1,3 +1,5 @@
+import type { Prisma } from '@prisma/client';
+import type { Page } from '../validation.js';
 import { createHash, randomBytes } from 'node:crypto';
 import { db } from '../db.js';
 import { inProject } from '../access.js';
@@ -5,12 +7,15 @@ import { recordActivity } from '../activity.js';
 import { ApiError } from '../errors.js';
 import { pageArgs } from '../validation.js';
 
-const publicInvitation = { id: true, projectId: true, email: true, invitedById: true, expiresAt: true, createdAt: true, acceptedAt: true, revokedAt: true } as const;
+const publicInvitation = { id: true, projectId: true, email: true, invitedById: true, expiresAt: true, createdAt: true, acceptedAt: true, revokedAt: true } as const satisfies Prisma.InvitationSelect;
+export type PublicInvitation = Prisma.InvitationGetPayload<{ select: typeof publicInvitation }>;
+export type IssuedInvitation = { invitation: PublicInvitation; token: string };
+
 /** Hash invitation secrets so database records cannot be used as bearer tokens. */
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
 /** Issue a seven-day email-bound token, invalidating any previous invitation for that email. */
-export function inviteMember(projectId: string, userId: string, email: string) {
+export function inviteMember(projectId: string, userId: string, email: string): Promise<IssuedInvitation> {
   return inProject(projectId, userId, async (tx, project) => {
     const member = await tx.membership.findFirst({ where: { projectId, user: { email } } });
     if (member) throw new ApiError(409, 'CONFLICT', 'Account already belongs to this project');
@@ -19,16 +24,16 @@ export function inviteMember(projectId: string, userId: string, email: string) {
     const invitation = await tx.invitation.upsert({ where: { projectId_email: { projectId, email } }, create: { projectId, email, ...data }, update: data, select: publicInvitation });
     await recordActivity(tx, project.id, userId, 'INVITATION_CREATED', invitation.id);
     return { invitation, token };
-  }, true);
+  }, { ownerOnly: true });
 }
 
 /** Restrict invitation records to the owner and exclude token hashes from responses. */
-export function listInvitations(projectId: string, userId: string, page: number, limit: number) {
+export function listInvitations(projectId: string, userId: string, page: number, limit: number): Promise<Page<PublicInvitation>> {
   return inProject(projectId, userId, async tx => {
     const where = { projectId };
     const items = await tx.invitation.findMany({ where, ...pageArgs(page, limit), orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], select: publicInvitation });
     return { items, total: await tx.invitation.count({ where }), page, limit };
-  }, true);
+  }, { ownerOnly: true, mode: 'read' });
 }
 
 /** Revoke an unused invitation while retaining an activity record of the action. */
@@ -41,7 +46,7 @@ export function revokeInvitation(projectId: string, userId: string, invitationId
       await tx.invitation.update({ where: { id: invitation.id }, data: { revokedAt: new Date() } });
       await recordActivity(tx, projectId, userId, 'INVITATION_REVOKED', invitation.id);
     }
-  }, true);
+  }, { ownerOnly: true });
 }
 
 /** Consume an invitation once under the project lock and create membership atomically. */

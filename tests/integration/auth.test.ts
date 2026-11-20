@@ -3,6 +3,7 @@ import { beforeAll, afterAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import express from 'express';
+import { sessionClaims } from '../../src/auth/validation.js';
 import { app } from '../../src/app.js';
 import { db } from '../../src/db.js';
 import { config } from '../../src/config.js';
@@ -55,9 +56,20 @@ describe('registration, login and token verification', () => {
     const expired = jwt.sign({ sub: userId, sid: randomUUID() }, config.JWT_SECRET, { expiresIn: -1, issuer: 'task-management', audience: 'task-api' });
     await request(protectedResource).get('/protected').set(auth(expired)).expect(401);
     const session = await createSession({ id: userId });
-    const claims = jwt.decode(session.token) as { sid: string };
+    const claims = sessionClaims.parse(jwt.decode(session.token));
     await db.session.update({ where: { id: claims.sid }, data: { expiresAt: new Date(0) } });
     await request(protectedResource).get('/protected').set(auth(session.token)).expect(401);
+  });
+  it('rejects wrong JWT issuer, audience, algorithm, and malformed session claims', async () => {
+    const session = await createSession({ id: userId });
+    const claims = sessionClaims.parse(jwt.decode(session.token));
+    const variants = [
+      jwt.sign({ sub: userId, sid: claims.sid }, config.JWT_SECRET, { expiresIn: '1h', issuer: 'wrong-issuer', audience: 'task-api' }),
+      jwt.sign({ sub: userId, sid: claims.sid }, config.JWT_SECRET, { expiresIn: '1h', issuer: 'task-management', audience: 'wrong-audience' }),
+      jwt.sign({ sub: userId, sid: claims.sid }, config.JWT_SECRET, { algorithm: 'HS384', expiresIn: '1h', issuer: 'task-management', audience: 'task-api' }),
+      jwt.sign({ sub: userId, sid: 'invalid-session-id' }, config.JWT_SECRET, { expiresIn: '1h', issuer: 'task-management', audience: 'task-api' }),
+    ];
+    for (const value of variants) await request(protectedResource).get('/protected').set(auth(value)).expect(401);
   });
   it('enforces and expires temporary account cooldowns', async () => {
     for (let index = 0; index < 5; index++) await request(app).post('/api/v1/auth/login').send({ email, password: 'incorrect' }).expect(401);
