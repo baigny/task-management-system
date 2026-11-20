@@ -118,3 +118,33 @@ other devices remain signed in. `POST /api/v1/auth/logout-all` revokes every ses
 for the account, including the requesting device. Both return 204. Revoked tokens
 immediately fail subsequent protected requests, even before their JWT expiry.
 Login throttling does not block either logout endpoint.
+
+## Password recovery and changes
+
+Start the local inbox with `docker compose up -d mailpit`. Set `SMTP_HOST=localhost`
+and `SMTP_PORT=1025` in `.env`, then restart the API. Open `http://localhost:8025`
+to read captured emails; Mailpit never sends them externally. Docker Compose routes
+the containerized API directly to Mailpit. For a real SMTP provider, configure
+`SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_FROM`, and paired `SMTP_USER`/
+`SMTP_PASSWORD` credentials. External production SMTP requires TLS or STARTTLS.
+
+1. Call `POST /api/v1/auth/forgot-password` with `{ "email": "developer@example.com" }`.
+   Known and unknown accounts receive the same 202 response. The API never returns
+   the token; account lookup and SMTP delivery run after the response.
+2. Copy the token from the email into Postman's `resetToken` collection variable.
+   Call `POST /api/v1/auth/reset-password` with `token`, `password`, and
+   `confirmPassword`. Tokens expire after 15 minutes and work once. Only token hashes
+   are stored in PostgreSQL. Invalid, expired, and reused tokens share one error.
+3. Log in again after a successful reset: every session and outstanding recovery token
+   is revoked atomically. Concurrent attempts cannot consume the same token twice.
+
+`POST /api/v1/auth/change-password` requires a bearer token, `currentPassword`,
+`password`, and `confirmPassword`. It also revokes all sessions and recovery tokens.
+New passwords follow the registration policy and must match their confirmation.
+Recovery routes allow 20 requests per IP per 15 minutes. Forgot-password and
+change-password each allow five attempts per account per 15 minutes.
+
+Missing SMTP configuration returns 503 uniformly. Delivery failures are logged without
+tokens or SMTP details; undelivered tokens are removed. The bounded, in-memory delivery
+queue is drained during graceful shutdown. If the process is forcibly terminated before
+delivery, request recovery again. No reset token is put in a URL or API response.

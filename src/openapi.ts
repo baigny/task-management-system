@@ -19,6 +19,10 @@ export const schemas: Record<string, Schema> = {
   Login: object({ email: { type: 'string', format: 'email' }, password: { type: 'string', minLength: 1, maxLength: 128, writeOnly: true } }),
   AuthResult: object({ user: ref('User'), token: { type: 'string' }, expiresAt: { type: 'string', format: 'date-time' } }),
   ProfileUpdate: object({ name: { type: 'string', minLength: 1, maxLength: 100 } }),
+  ForgotPassword: object({ email: { type: 'string', format: 'email', maxLength: 254 } }),
+  RecoveryAccepted: object({ message: { type: 'string' } }),
+  ResetPassword: object({ token: { type: 'string', pattern: '^[a-f0-9]{64}$', writeOnly: true }, password: ref('Password'), confirmPassword: { allOf: [ref('Password')], description: 'Must match password.' } }),
+  ChangePassword: object({ currentPassword: { type: 'string', minLength: 1, maxLength: 128, writeOnly: true }, password: ref('Password'), confirmPassword: { allOf: [ref('Password')], description: 'Must match password.' } }),
 };
 
 // Both Swagger and Postman consume these operations, so examples change with each feature.
@@ -31,6 +35,9 @@ export const operations: Operation[] = [
   { method: 'patch', path: '/api/v1/users/me', summary: 'Update profile', body: 'ProfileUpdate', response: 'User', example: { name: 'Updated Developer' }, description: 'Changes only the display name. Unknown/protected fields are rejected.' },
   { method: 'post', path: '/api/v1/auth/logout', summary: 'Logout current device', status: 204, description: 'Immediately revokes the supplied session. Other devices stay logged in; login throttling does not block logout.' },
   { method: 'post', path: '/api/v1/auth/logout-all', summary: 'Logout all devices', status: 204, description: 'Revokes all of the authenticated account sessions, including the supplied token.' },
+  { method: 'post', path: '/api/v1/auth/forgot-password', summary: 'Request password reset', auth: false, status: 202, body: 'ForgotPassword', response: 'RecoveryAccepted', errors: [400, 429, 500, 503], example: { email: 'developer@example.com' }, description: 'Known and unknown emails receive the same message; the token is delivered only by SMTP. Five requests per email per 15 minutes. Delivery is deferred until after the response. Missing SMTP configuration returns 503 uniformly.' },
+  { method: 'post', path: '/api/v1/auth/reset-password', summary: 'Reset password', auth: false, status: 204, body: 'ResetPassword', errors: [400, 429, 500], example: { token: '{{resetToken}}', password: 'replacement-password-123', confirmPassword: 'replacement-password-123' }, description: 'Consumes a single-use token within 15 minutes, revokes all sessions and outstanding reset tokens, and requires a fresh login. Passwords must match. Expired, invalid, or reused tokens return the same 400 error.' },
+  { method: 'post', path: '/api/v1/auth/change-password', summary: 'Change password', status: 204, body: 'ChangePassword', example: { currentPassword: 'strong-password-123', password: 'replacement-password-123', confirmPassword: 'replacement-password-123' }, description: 'Requires a valid session, current password, and matching new passwords. Revokes every session and reset token. Five attempts per account per 15 minutes. All password-recovery routes share a separate 20-request IP limit per 15 minutes.' },
 ];
 
 /** Publish explicit success/error schemas and parameters for every documented endpoint. */

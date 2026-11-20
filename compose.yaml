@@ -31,6 +31,11 @@ services:
     environment:
       DATABASE_URL: postgresql://taskapp:taskapp@db:5432/task_management_dev?schema=public
       NODE_ENV: production
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_SECURE: 'false'
+      SMTP_USER: ''
+      SMTP_PASSWORD: ''
     ports:
       - '3000:3000'
     volumes:
@@ -40,6 +45,13 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+      mailpit:
+        condition: service_started
+  mailpit:
+    image: axllent/mailpit:v1
+    ports:
+      - '127.0.0.1:1025:1025'
+      - '127.0.0.1:8025:8025'
   test-db:
     image: postgres:17-alpine
     profiles: [test]

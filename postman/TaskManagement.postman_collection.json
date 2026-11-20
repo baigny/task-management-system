@@ -268,6 +268,124 @@
           }
         }
       ]
+    },
+    {
+      "name": "Request password reset",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/auth/forgot-password",
+        "auth": {
+          "type": "noauth"
+        },
+        "description": "Known and unknown emails receive the same message; the token is delivered only by SMTP. Five requests per email per 15 minutes. Delivery is deferred until after the response. Missing SMTP configuration returns 503 uniformly.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"developer@example.com\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(202); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reset password",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/auth/reset-password",
+        "auth": {
+          "type": "noauth"
+        },
+        "description": "Consumes a single-use token within 15 minutes, revokes all sessions and outstanding reset tokens, and requires a fresh login. Passwords must match. Expired, invalid, or reused tokens return the same 400 error.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"password\": \"replacement-password-123\",\n  \"confirmPassword\": \"replacement-password-123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Change password",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/auth/change-password",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Requires a valid session, current password, and matching new passwords. Revokes every session and reset token. Five attempts per account per 15 minutes. All password-recovery routes share a separate 20-request IP limit per 15 minutes.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"currentPassword\": \"strong-password-123\",\n  \"password\": \"replacement-password-123\",\n  \"confirmPassword\": \"replacement-password-123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

@@ -17,4 +17,10 @@ describe('environment validation', () => {
     expect(() => parseEnvironment({ ...valid, NODE_ENV: 'production', JWT_SECRET: 'replace-with-at-least-32-random-characters' })).toThrow();
     expect(parseEnvironment({ ...valid, NODE_ENV: 'production' }).NODE_ENV).toBe('production');
   });
+  it('parses SMTP flags explicitly and requires paired credentials', () => {
+    expect(parseEnvironment({ ...valid, SMTP_SECURE: 'false' }).SMTP_SECURE).toBe(false);
+    expect(parseEnvironment({ ...valid, SMTP_SECURE: 'true' }).SMTP_SECURE).toBe(true);
+    expect(() => parseEnvironment({ ...valid, SMTP_USER: 'sender', SMTP_PASSWORD: '' })).toThrow();
+    expect(() => parseEnvironment({ ...valid, SMTP_PORT: 70000 })).toThrow();
+  });
 });
