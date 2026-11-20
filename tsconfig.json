@@ -4,5 +4,6 @@
     "strict": true, "esModuleInterop": true, "skipLibCheck": true, "types": ["node"],
     "outDir": "dist", "rootDir": "src", "resolveJsonModule": true
   },
-  "include": ["src/config.ts"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/db.ts"]
 }
