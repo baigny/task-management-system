@@ -876,6 +876,94 @@
           }
         }
       ]
+    },
+    {
+      "name": "Preview member removal",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/members/{{userId}}/removal-preview",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner can preview removal of a member; members can preview their own leave. Owner removal returns 409. Default automatic mode balances unfinished, non-deleted tasks within this project, with stable user-ID ties. The owner is the fallback when no other members remain. Manual mode requires an owner-selected remaining member. Preview changes nothing and is advisory.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"mode\": \"AUTOMATIC\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Remove member or leave project",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/members/{{userId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner removes others; members can leave by supplying their own userId. Transfer ownership before the owner can leave. Recalculates allocation under an exclusive project lock; reassigns unfinished active tasks, revokes pending invitations, removes membership, and appends activity atomically. Completed and soft-deleted task history stays intact. Supply mode MANUAL and replacementUserId for owner-selected replacement.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"mode\": \"AUTOMATIC\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

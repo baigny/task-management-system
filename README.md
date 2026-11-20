@@ -242,3 +242,39 @@ Public requests have no assumed authentication context; protected controllers us
 checked accessor. Project reads use shared locks so they can proceed concurrently,
 while ownership, membership, and lifecycle mutations use exclusive project locks.
 Regression tests cover JWT issuer/audience/algorithm rejection and read/write locking.
+
+## Leaving projects and reassigning work
+
+Preview removal at `POST /api/v1/projects/{projectId}/members/{userId}/removal-preview`.
+Owners can remove other members; a member can preview and leave using their own
+`userId`. Owners must transfer ownership before leaving. Deleted projects cannot
+change membership. Both preview and removal accept these bodies:
+
+```json
+{ "mode": "AUTOMATIC" }
+```
+
+```json
+{ "mode": "MANUAL", "replacementUserId": "<remaining member UUID>" }
+```
+
+Omitting the body selects automatic mode. Manual selection is owner-only and may
+choose the owner. Automatic mode counts only `OPEN`/`IN_PROGRESS`, non-deleted tasks
+in the current project, chooses the least-loaded remaining member for each task,
+and updates the count after each allocation. Zero-work members are chosen first;
+equal workloads use ascending user IDs. The owner is the fallback when no other
+members remain. Tasks are allocated oldest first with an ID tie-breaker.
+
+Execute with `DELETE /api/v1/projects/{projectId}/members/{userId}`. In Postman,
+set `userId` to the target member while keeping `token` as the acting account token.
+For self-leave, use your own account ID. The response
+contains `unfinishedTasks` and per-recipient `currentTasks`, `reassignedTasks`, and
+`resultingTasks`. Preview returns the same shape without mutation. Execution always
+recalculates: tasks or workloads may have changed since the preview.
+
+Assignment changes, pending-invitation revocation, membership removal, and activity
+records commit together. Removed members immediately lose subsequent project access.
+Completed and soft-deleted tasks retain their historical assignments; task restoration
+will validate departed assignees when the task lifecycle API is added. Bulk writes
+and activity inserts are grouped in bounded batches. Permanent project purge now
+cascades task records. Task CRUD HTTP endpoints follow in a separate functional batch.

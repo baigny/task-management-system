@@ -4,7 +4,7 @@ export type Schema = OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject;
 export type Operation = {
   method: 'get' | 'post' | 'patch' | 'delete'; path: string; summary: string;
   description?: string; auth?: boolean; status?: number; errors?: number[];
-  body?: string; example?: Record<string, unknown>; response?: string;
+  body?: string; bodyRequired?: boolean; example?: Record<string, unknown>; response?: string;
   requestContentType?: string; responseContentType?: string;
   query?: { name: string; schema: Schema; example?: string; description?: string }[];
   save?: { variable: string; path: string }[];
@@ -38,6 +38,8 @@ export const schemas: Record<string, Schema> = {
   InvitationList: object({ items: { type: 'array', items: ref('Invitation') }, total: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' } }),
   OwnershipTransfer: object({ newOwnerId: { type: 'string', format: 'uuid' } }),
   MemberList: object({ items: { type: 'array', items: object({ projectId: { type: 'string', format: 'uuid' }, userId: { type: 'string', format: 'uuid' }, createdAt: { type: 'string', format: 'date-time' }, user: ref('User'), role: { type: 'string', enum: ['OWNER', 'MEMBER'] } }) }, total: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' } }),
+  MemberRemovalInput: { oneOf: [object({ mode: { type: 'string', enum: ['AUTOMATIC'], default: 'AUTOMATIC' } }, []), object({ mode: { type: 'string', enum: ['MANUAL'] }, replacementUserId: { type: 'string', format: 'uuid' } })] },
+  RemovalPreview: object({ userId: { type: 'string', format: 'uuid' }, mode: { type: 'string', enum: ['AUTOMATIC', 'MANUAL'] }, unfinishedTasks: { type: 'integer', minimum: 0 }, allocations: { type: 'array', items: object({ userId: { type: 'string', format: 'uuid' }, currentTasks: { type: 'integer', minimum: 0 }, reassignedTasks: { type: 'integer', minimum: 0 }, resultingTasks: { type: 'integer', minimum: 0 } }) } }),
   ProjectInput: object({ name: { type: 'string', minLength: 1, maxLength: 100 }, description: { type: 'string', maxLength: 5000, default: '' } }, ['name']),
 };
 
@@ -73,6 +75,8 @@ export const operations: Operation[] = [
   { method: 'post', path: '/api/v1/invitations/accept', summary: 'Accept project invitation', body: 'InvitationAcceptance', response: 'Project', example: { token: '{{invitationToken}}' }, description: 'Authenticate as the invited email account. Invalid, expired, revoked, replaced, reused, and wrong-account tokens return the same 400. Joining a deleted project is forbidden. Creates membership and activity atomically. Limited to 30 attempts per IP per 15 minutes.' },
   { method: 'get', path: '/api/v1/projects/{projectId}/members', summary: 'List project members', response: 'MemberList', query: pageParameters, description: 'Members only. Returns public profiles and roles scoped to this project; credentials and session fields are excluded.' },
   { method: 'post', path: '/api/v1/projects/{projectId}/ownership', summary: 'Transfer project ownership', body: 'OwnershipTransfer', response: 'Project', example: { newOwnerId: '{{replacementUserId}}' }, description: 'Owner only. The new owner must already be a member. The previous owner remains a member. Changes and activity are atomic; the project always has exactly one owner.' },
+  { method: 'post', path: '/api/v1/projects/{projectId}/members/{userId}/removal-preview', summary: 'Preview member removal', body: 'MemberRemovalInput', bodyRequired: false, response: 'RemovalPreview', example: { mode: 'AUTOMATIC' }, description: 'Owner can preview removal of a member; members can preview their own leave. Owner removal returns 409. Default automatic mode balances unfinished, non-deleted tasks within this project, with stable user-ID ties. The owner is the fallback when no other members remain. Manual mode requires an owner-selected remaining member. Preview changes nothing and is advisory.' },
+  { method: 'delete', path: '/api/v1/projects/{projectId}/members/{userId}', summary: 'Remove member or leave project', body: 'MemberRemovalInput', bodyRequired: false, response: 'RemovalPreview', example: { mode: 'AUTOMATIC' }, description: 'Owner removes others; members can leave by supplying their own userId. Transfer ownership before the owner can leave. Recalculates allocation under an exclusive project lock; reassigns unfinished active tasks, revokes pending invitations, removes membership, and appends activity atomically. Completed and soft-deleted task history stays intact. Supply mode MANUAL and replacementUserId for owner-selected replacement.' },
 ];
 
 /** Publish explicit success/error schemas and parameters for every documented endpoint. */
@@ -94,7 +98,7 @@ function createPaths() {
     path[operation.method] = {
       summary: operation.summary, description: operation.description, responses, parameters,
       security: operation.auth === false ? [] : [{ bearerAuth: [] }],
-      ...(operation.body ? { requestBody: { required: true, content: { [operation.requestContentType ?? 'application/json']: { schema: ref(operation.body), example: operation.example } } } } : {}),
+      ...(operation.body ? { requestBody: { required: operation.bodyRequired ?? true, content: { [operation.requestContentType ?? 'application/json']: { schema: ref(operation.body), example: operation.example } } } } : {}),
     };
   }
   return paths;
