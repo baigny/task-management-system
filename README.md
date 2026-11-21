@@ -3,6 +3,9 @@
 A backend REST API for teams to organize projects, assign tasks, and collaborate
 through comment threads and protected attachments.
 
+[Public repository](https://github.com/baigny/task-management-system) ·
+[Pull request](https://github.com/baigny/task-management-system/pull/1)
+
 ## Features
 
 - Registration, login, profile updates, password recovery, and revocable sessions.
@@ -79,7 +82,7 @@ Copy values from [.env.example](.env.example) and adjust them for your environme
 | `NODE_ENV` | `development`, `test`, or `production` |
 | `GEMINI_API_KEY` | Optional Google Gemini key; blank disables AI routes with 503 |
 | `GEMINI_MODEL` | Model ID; default `gemini-3.5-flash-lite` |
-| `GEMINI_TIMEOUT_MS` | Provider deadline, 1000–60000 ms; default `15000` |
+| `GEMINI_TIMEOUT_MS` | Provider deadline, 1000 to 60000 ms; default `15000` |
 | `SMTP_HOST`, `SMTP_PORT` | Password-recovery mail server; local Mailpit uses `localhost:1025` |
 | `SMTP_SECURE` | `true` for implicit TLS; default `false` |
 | `SMTP_USER`, `SMTP_PASSWORD` | Optional SMTP credentials; configure both together |
@@ -235,6 +238,12 @@ on port 5433; development PostgreSQL uses port 5432. The runner rejects database
 without `_test` and never falls back to the development connection. GitHub Actions
 runs checks and integration tests against PostgreSQL for branch pushes and PRs.
 
+Coverage includes authentication and session revocation, project isolation,
+invitations, reassignment and deletion cascades, threaded comments, protected
+attachments, cleanup retries, notification persistence, SSE replay, and Gemini
+success/failure handling. AI integration tests use real database sessions and a
+mocked provider, so they require no API key or paid calls.
+
 | Command | Purpose |
 | --- | --- |
 | `npm test` | Unit and API contract tests without a database server |
@@ -258,7 +267,9 @@ src/
   tasks/         Task CRUD, discovery, assignment, and lifecycle
   comments/      Threads and replies
   attachments/   Uploads, downloads, private storage, and cleanup
+  history/       Authorized project and task activity timelines
   notifications/ Inbox, read controls, transactional notices, and SSE
+  ai/            Gemini description suggestions and task summaries
   app.ts         Express middleware and route registration
   access.ts      Shared project authorization and transactions
   openapi.ts     API schemas and endpoint metadata
@@ -268,12 +279,27 @@ tests/           Unit, contract, and PostgreSQL integration tests
 scripts/         Documentation and test tooling
 ```
 
+`.tmp/` is a Git-ignored local workspace for disposable test uploads, diagnostic
+logs, smoke-test scripts, and working drafts. Its contents are not part of the
+repository or application setup. Maintained tests live in `tests/`; shared tooling
+lives in `scripts/`. Keep credentials in the ignored `.env`.
+
 ## Gemini assistance
 
 Add `GEMINI_API_KEY` to your private `.env` and restart the API. The default model
 is `gemini-3.5-flash-lite`; supported model IDs are listed in
 [Google's model documentation](https://aistudio.google.com/docs/models).
 No key is needed for core task features or automated tests.
+
+After changing `.env`, restart the local development process. For Docker, recreate
+the API container so Compose reloads the environment:
+
+```sh
+docker compose up -d --force-recreate --wait api
+```
+
+In the following Bash examples, set `TOKEN` to the token returned by registration
+or login. Use a project and task accessible to that account for the summary call.
 
 ```sh
 curl -X POST http://localhost:3000/api/v1/ai/descriptions \
@@ -310,7 +336,10 @@ Provider quota/service unavailability returns `503 AI_UNAVAILABLE` with
 `Retry-After: 30`. These errors do not disable core features.
 
 Tests mock Gemini success, invalid output, timeouts, and provider failures without
-making paid calls. A live smoke test requires a locally configured key.
+making paid calls. To check a locally configured key, run both requests above and
+verify successful responses with nonempty suggestions. Generating a suggestion
+leaves the stored task unchanged; saving it requires a separate task create/update
+request. Live requests consume the configured Google account's API quota.
 
 ## Current limitations
 
