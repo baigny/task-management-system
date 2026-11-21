@@ -12,6 +12,7 @@ through comment threads and protected attachments.
 - Protected JPG, JPEG, PNG, and PDF attachments up to 10 MB.
 - Soft deletion, restoration, activity history, and permanent-deletion cascades.
 - Persisted notifications, unread controls, and authenticated SSE replay.
+- Optional Gemini task-description suggestions, saved only on explicit request.
 
 ## Tech stack
 
@@ -76,6 +77,9 @@ Copy values from [.env.example](.env.example) and adjust them for your environme
 | `CORS_ORIGIN` | Allowed client origin; default `http://localhost:5173` |
 | `UPLOAD_DIR` | Private attachment directory; default `uploads` |
 | `NODE_ENV` | `development`, `test`, or `production` |
+| `GEMINI_API_KEY` | Optional Google Gemini key; blank disables AI routes with 503 |
+| `GEMINI_MODEL` | Model ID; default `gemini-3.5-flash-lite` |
+| `GEMINI_TIMEOUT_MS` | Provider deadline, 1000–60000 ms; default `15000` |
 | `SMTP_HOST`, `SMTP_PORT` | Password-recovery mail server; local Mailpit uses `localhost:1025` |
 | `SMTP_SECURE` | `true` for implicit TLS; default `false` |
 | `SMTP_USER`, `SMTP_PASSWORD` | Optional SMTP credentials; configure both together |
@@ -264,8 +268,37 @@ tests/           Unit, contract, and PostgreSQL integration tests
 scripts/         Documentation and test tooling
 ```
 
+## Gemini assistance
+
+Add `GEMINI_API_KEY` to your private `.env` and restart the API. The default model
+is `gemini-3.5-flash-lite`; supported model IDs are listed in
+[Google's model documentation](https://aistudio.google.com/docs/models).
+No key is needed for core task features or automated tests.
+
+```sh
+curl -X POST http://localhost:3000/api/v1/ai/descriptions \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"input":"Add CSV export for completed tasks"}'
+```
+
+The response contains `description` and `model`. Review the suggestion and save
+it explicitly using the existing create/update task endpoints. Generation never
+writes task, activity, or notification records. Input is sent to Google for
+processing; keep credentials out of task ideas. Requests use a single provider
+attempt with a default 15-second deadline and a shared account limit of ten AI
+requests per 15 minutes. The response is not cached.
+
+Missing configuration returns `503 AI_NOT_CONFIGURED`; a deadline returns
+`504 AI_TIMEOUT`. Invalid, blocked, or incomplete output returns
+`502 AI_INVALID_RESPONSE`; other provider failures return `502 AI_PROVIDER_ERROR`.
+Provider quota/service unavailability returns `503 AI_UNAVAILABLE` with
+`Retry-After: 30`. These errors do not disable core features.
+
+Tests mock Gemini success, invalid output, timeouts, and provider failures without
+making paid calls. A live smoke test requires a locally configured key.
+
 ## Current limitations
 
 The application is API-only and uses one API instance for local-file storage and
 cleanup. Invitation tokens are shared manually; invitation email delivery is not
-included. Gemini assistance is not implemented yet. SSE uses the same single API instance.
+included. SSE uses the same single API instance.

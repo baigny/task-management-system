@@ -23,4 +23,11 @@ describe('environment validation', () => {
     expect(() => parseEnvironment({ ...valid, SMTP_USER: 'sender', SMTP_PASSWORD: '' })).toThrow();
     expect(() => parseEnvironment({ ...valid, SMTP_PORT: 70000 })).toThrow();
   });
+  it('allows disabled Gemini but validates its model and bounded timeout', () => {
+    expect(parseEnvironment(valid)).toMatchObject({ GEMINI_API_KEY: '', GEMINI_MODEL: 'gemini-3.5-flash-lite', GEMINI_TIMEOUT_MS: 15000 });
+    expect(() => parseEnvironment({ ...valid, GEMINI_MODEL: '' })).toThrow();
+    expect(() => parseEnvironment({ ...valid, GEMINI_MODEL: 'https://other-provider' })).toThrow();
+    expect(() => parseEnvironment({ ...valid, GEMINI_TIMEOUT_MS: 0 })).toThrow();
+    expect(() => parseEnvironment({ ...valid, GEMINI_TIMEOUT_MS: 60001 })).toThrow();
+  });
 });

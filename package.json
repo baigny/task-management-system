@@ -23,6 +23,7 @@
     "docs:check": "tsx scripts/postman.ts --check"
   },
   "dependencies": {
+    "@google/genai": "^3.6.1",
     "@prisma/client": "^6.19.3",
     "argon2": "^0.45.2",
     "cors": "^2.8.6",

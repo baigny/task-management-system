@@ -11,6 +11,50 @@
   ],
   "item": [
     {
+      "name": "Suggest task description",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/ai/descriptions",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Authenticated Gemini suggestion only; does not save or change tasks. Ten AI requests per account per 15 minutes. Inputs are sent to Google. Requires GEMINI_API_KEY; GEMINI_MODEL defaults to gemini-3.5-flash-lite. AI_NOT_CONFIGURED returns 503, AI_TIMEOUT 504, AI_INVALID_RESPONSE or AI_PROVIDER_ERROR 502, and provider throttling/unavailability AI_UNAVAILABLE 503 with Retry-After. Explicitly save the description through task creation or update.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"input\": \"Add CSV export for completed tasks\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "Stream live notifications",
       "request": {
         "method": "GET",
