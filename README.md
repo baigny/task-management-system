@@ -279,11 +279,6 @@ tests/           Unit, contract, and PostgreSQL integration tests
 scripts/         Documentation and test tooling
 ```
 
-`.tmp/` is a Git-ignored local workspace for disposable test uploads, diagnostic
-logs, smoke-test scripts, and working drafts. Its contents are not part of the
-repository or application setup. Maintained tests live in `tests/`; shared tooling
-lives in `scripts/`. Keep credentials in the ignored `.env`.
-
 ## Gemini assistance
 
 Add `GEMINI_API_KEY` to your private `.env` and restart the API. The default model
