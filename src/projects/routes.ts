@@ -1,0 +1,25 @@
+import { Router } from 'express';
+import { taskRoutes } from '../tasks/routes.js';
+import { listMembers, transferOwnership, previewMemberRemoval, removeProjectMember } from '../members/controller.js';
+import { inviteMember, listInvitations, revokeInvitation } from '../invitations/controller.js';
+import { authenticate, noStore } from '../auth/middleware.js';
+import { createProject, listProjects, readProject, updateProject, deleteProject, restoreProject, purgeProject, listActivity } from './controller.js';
+
+export const projectRoutes = Router();
+projectRoutes.use(noStore, authenticate);
+projectRoutes.post('/', createProject);
+projectRoutes.get('/', listProjects);
+projectRoutes.get('/:projectId', readProject);
+projectRoutes.patch('/:projectId', updateProject);
+projectRoutes.delete('/:projectId', deleteProject);
+projectRoutes.post('/:projectId/restore', restoreProject);
+projectRoutes.delete('/:projectId/permanent', purgeProject);
+projectRoutes.get('/:projectId/activity', listActivity);
+projectRoutes.post('/:projectId/invitations', inviteMember);
+projectRoutes.get('/:projectId/invitations', listInvitations);
+projectRoutes.delete('/:projectId/invitations/:invitationId', revokeInvitation);
+projectRoutes.get('/:projectId/members', listMembers);
+projectRoutes.post('/:projectId/ownership', transferOwnership);
+projectRoutes.post('/:projectId/members/:userId/removal-preview', previewMemberRemoval);
+projectRoutes.delete('/:projectId/members/:userId', removeProjectMember);
+projectRoutes.use('/:projectId/tasks', taskRoutes);

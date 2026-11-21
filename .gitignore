@@ -7,3 +7,4 @@ coverage/
 uploads/
 *.log
 .tmp/
+docs/IMPLEMENTATION_TRACKER.md

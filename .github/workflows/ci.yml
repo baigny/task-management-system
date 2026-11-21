@@ -1,0 +1,39 @@
+name: CI
+on:
+  push:
+    branches: [main, feat-task-management]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: taskapp
+          POSTGRES_PASSWORD: taskapp
+          POSTGRES_DB: task_management_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U taskapp -d task_management_test"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://taskapp:taskapp@localhost:5432/task_management_dev
+      TEST_DATABASE_URL: postgresql://taskapp:taskapp@localhost:5432/task_management_test
+      JWT_SECRET: ci-test-secret-is-not-used-outside-ephemeral-tests
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run check
+      - run: npm run test:integration

@@ -1,0 +1,44 @@
+import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import { pinoHttp } from 'pino-http';
+import swaggerUi from 'swagger-ui-express';
+import { randomUUID } from 'node:crypto';
+import { config } from './config.js';
+import { ApiError, errorHandler } from './errors.js';
+import { openapi } from './openapi.js';
+import { db } from './db.js';
+import { authRoutes, profileRoutes } from './auth/routes.js';
+import { invitationRoutes } from './invitations/routes.js';
+import { taskDiscoveryRoutes } from './tasks/routes.js';
+import { projectRoutes } from './projects/routes.js';
+import { notificationRoutes } from './notifications/routes.js';
+import { aiRoutes } from './ai/routes.js';
+
+/** Inject readiness checks for outage tests without replacing the real database globally. */
+export function createApp(checkDatabase: () => Promise<unknown> = () => db.$queryRaw`SELECT 1`) {
+  const app = express();
+  app.use(pinoHttp({ genReqId: () => randomUUID(), redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers.set-cookie'], autoLogging: config.NODE_ENV !== 'test' }));
+  app.use((req, res, next) => { res.setHeader('X-Request-Id', String(req.id)); next(); });
+  app.use(helmet());
+  app.use(cors({ origin: config.CORS_ORIGIN }));
+  app.use(express.json({ limit: '100kb' }));
+  app.get('/health', (_req, res) => { res.json({ status: 'ok' }); });
+  app.get('/ready', async (_req, res) => {
+    try { await checkDatabase(); res.json({ status: 'ready' }); }
+    catch { res.status(503).json({ error: { code: 'DATABASE_UNAVAILABLE', message: 'Database unavailable' } }); }
+  });
+  app.get('/openapi.json', (_req, res) => { res.json(openapi); });
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapi));
+  app.use('/api/v1/auth', authRoutes);
+  app.use('/api/v1/users/me', profileRoutes);
+  app.use('/api/v1/projects', projectRoutes);
+  app.use('/api/v1/tasks', taskDiscoveryRoutes);
+  app.use('/api/v1/notifications', notificationRoutes);
+  app.use('/api/v1/invitations', invitationRoutes);
+  app.use('/api/v1/ai', aiRoutes);
+  app.use((_req, _res, next) => { next(new ApiError(404, 'NOT_FOUND', 'Resource not found')); });
+  app.use(errorHandler);
+  return app;
+}
+export const app = createApp();

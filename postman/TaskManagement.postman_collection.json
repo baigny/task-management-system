@@ -1,0 +1,1815 @@
+{
+  "info": {
+    "name": "Task Management API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Summarize accessible task",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/ai/summaries",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Current project members only. Sends task title, description, status, and due date to Google; excludes comments, files, and account details. Rechecks membership and task/project lifecycle after generation. Inaccessible or deleted resources return 404; concurrent task changes return 409 TASK_CHANGED. Returns a suggestion and sourceUpdatedAt without saving anything. Shares the ten-per-account/15-minute description quota and the same provider errors and timeout. No database locks are held during the provider call.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"projectId\": \"{{projectId}}\",\n  \"taskId\": \"{{taskId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Suggest task description",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/ai/descriptions",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Authenticated Gemini suggestion only; does not save or change tasks. Ten AI requests per account per 15 minutes. Inputs are sent to Google. Requires GEMINI_API_KEY; GEMINI_MODEL defaults to gemini-3.5-flash-lite. AI_NOT_CONFIGURED returns 503, AI_TIMEOUT 504, AI_INVALID_RESPONSE or AI_PROVIDER_ERROR 502, and provider throttling/unavailability AI_UNAVAILABLE 503 with Retry-After. Explicitly save the description through task creation or update.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"input\": \"Add CSV export for completed tasks\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stream live notifications",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/notifications/stream",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Bearer authentication only; URL tokens and query fields are rejected. Polls committed notifications in batches of 100 every two seconds with current membership checks; heartbeats every 15 seconds and retry hint 3000 ms. Reconnect using the last received event ID; clients deduplicate by ID. IDs are allocated in commit order to prevent replay gaps. Local logout/password changes close streams immediately; database revocations are detected on the next poll. JWT expiry closes the stream at its deadline. Maximum five streams per account and 200 per API instance; slow consumers are disconnected after five seconds without a drain. SSE does not mark notices read. After membership/project restoration, refetch the REST inbox for older newly accessible notices.",
+        "header": [
+          {
+            "key": "Last-Event-ID",
+            "value": "0",
+            "type": "text"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List notification inbox",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/notifications",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Recipient-only, newest ID first. Includes readable messages, public actor, current project/task context, and accessible unread count. Current membership and active project required. Soft-deleted tasks expose only deletion notices. Unread count ignores the read/unread filter but respects projectId. No-op edits and self-notifications are suppressed. Notifications persist in the originating transaction and cascade on task/project purge.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Count unread notifications",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/notifications/unread-count",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Counts only the authenticated recipient notices accessible under current membership and lifecycle rules.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mark notification read",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/api/v1/notifications/{{notificationId}}/read",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Recipient only. Missing, other-recipient, or inaccessible notices return 404. Repeated/concurrent reads preserve the first readAt timestamp.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mark all notifications read",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/api/v1/notifications/read-all",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Marks only current accessible unread notices, optionally filtered by projectId. Returns updatedCount; repeated calls return zero.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List task activity history",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}/activity",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Current members can inspect active tasks; only owners can inspect task/project trash. Includes task, assignment, comment, and attachment events with public actor names. Read-only, paginated, newest first with ID ascending ties. Filter by action or actorId. Purged tasks return 404; their project history remains.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Upload task attachment",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}/attachments",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Current members only, active task/project required. Send one multipart file field named file with no extra fields. Only .pdf, .png, .jpg, .jpeg with matching media type and signature; maximum 10 MB (10485760 bytes). Text and other formats are rejected with 415. Limited to 30 upload requests per IP per 15 minutes. Access is checked before upload and again before persistence. Metadata and activity commit atomically; generated storage paths remain private.",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": ""
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(201); });",
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const data = pm.response.json();",
+              "  pm.collectionVariables.set(\"attachmentId\", data[\"id\"]);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List task attachments",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}/attachments",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Current members only. Paginated metadata in chronological order with stable ID ties. Storage keys and filesystem paths are never returned.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Download task attachment",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}/attachments/{{attachmentId}}/download",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Requires a valid bearer session and current project membership on every request. Sends the stored media type, Content-Disposition attachment, Content-Length, no-store, and nosniff. No public download URLs. Cross-task IDs and hidden tasks/projects return 404. Authorization is evaluated when opening the stream.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete task attachment",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}/attachments/{{attachmentId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Current uploader or project owner only. Removes metadata immediately and atomically queues durable physical deletion with activity. The worker retries failures every minute. Task/project permanent purges also queue their files before cascading metadata deletion. Soft deletion keeps files for restoration.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create comment thread or reply",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}/comments",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Current members only, on active tasks/projects. Omit parentId to start a thread; supply a root ID from this task to reply. Replies to replies are rejected with 400. Text is trimmed, 1–5000 characters. Creation and activity are atomic.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"body\": \"Can we review this task?\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(201); });",
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const data = pm.response.json();",
+              "  pm.collectionVariables.set(\"commentId\", data[\"id\"]);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List task comment threads",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}/comments",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Lists roots chronologically with stable ID ties, public author profiles, and reply counts. Replies are paginated separately. Deleted text is null with deletedAt set; thread structure remains.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List comment thread replies",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}/comments/{{commentId}}/replies",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Current members only. commentId must be a root in this task. Returns chronological, paginated direct replies, including deletion placeholders.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete comment text",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}/comments/{{commentId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Current author or project owner only. Clears text and records deletedAt without removing replies. Repeated authorized deletion returns 204. Project/task purge cascades all comments and replies.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Process health",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/health",
+        "auth": {
+          "type": "noauth"
+        },
+        "description": "Checks the HTTP process independently of PostgreSQL.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Database readiness",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/ready",
+        "auth": {
+          "type": "noauth"
+        },
+        "description": "Queries PostgreSQL. Returns DATABASE_UNAVAILABLE when the database cannot be reached.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Register account",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/auth/register",
+        "auth": {
+          "type": "noauth"
+        },
+        "description": "Creates an account and one-hour session. Passwords must match. Duplicate email returns 409. Authentication responses are not cached.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"developer@example.com\",\n  \"name\": \"Developer\",\n  \"password\": \"strong-password-123\",\n  \"confirmPassword\": \"strong-password-123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(201); });",
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const data = pm.response.json();",
+              "  pm.collectionVariables.set(\"token\", data[\"token\"]);",
+              "  pm.collectionVariables.set(\"userId\", data[\"user\"][\"id\"]);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/auth/login",
+        "auth": {
+          "type": "noauth"
+        },
+        "description": "Invalid email and password share one response. After five failed attempts per account in 15 minutes, further attempts return 429. Success resets the account counter.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"developer@example.com\",\n  \"password\": \"strong-password-123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const data = pm.response.json();",
+              "  pm.collectionVariables.set(\"token\", data[\"token\"]);",
+              "  pm.collectionVariables.set(\"userId\", data[\"user\"][\"id\"]);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "View profile",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/users/me",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Returns the authenticated account profile without credentials. Response is not cached.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Update profile",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/api/v1/users/me",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Changes only the display name. Unknown/protected fields are rejected.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Updated Developer\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Logout current device",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/auth/logout",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Immediately revokes the supplied session. Other devices stay logged in; login throttling does not block logout.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Logout all devices",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/auth/logout-all",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Revokes all of the authenticated account sessions, including the supplied token.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Request password reset",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/auth/forgot-password",
+        "auth": {
+          "type": "noauth"
+        },
+        "description": "Known and unknown emails receive the same message; the token is delivered only by SMTP. Five requests per email per 15 minutes. Delivery is deferred until after the response. Missing SMTP configuration returns 503 uniformly.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"developer@example.com\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(202); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reset password",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/auth/reset-password",
+        "auth": {
+          "type": "noauth"
+        },
+        "description": "Consumes a single-use token within 15 minutes, revokes all sessions and outstanding reset tokens, and requires a fresh login. Passwords must match. Expired, invalid, or reused tokens return the same 400 error.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"password\": \"replacement-password-123\",\n  \"confirmPassword\": \"replacement-password-123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Change password",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/auth/change-password",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Requires a valid session, current password, and matching new passwords. Revokes every session and reset token. Five attempts per account per 15 minutes. All password-recovery routes share a separate 20-request IP limit per 15 minutes.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"currentPassword\": \"strong-password-123\",\n  \"password\": \"replacement-password-123\",\n  \"confirmPassword\": \"replacement-password-123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create project",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/projects",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Creates the project and its owner membership atomically.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Release\",\n  \"description\": \"Coordinate the release\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(201); });",
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const data = pm.response.json();",
+              "  pm.collectionVariables.set(\"projectId\", data[\"id\"]);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List projects",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/projects",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Lists active projects the caller belongs to, newest first with an ID tie-breaker. deleted=true lists only the caller-owned deleted projects.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "View project",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Members only. Nonmembers receive 404.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Update project",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner only. Requires at least one supported field. Omitted fields remain unchanged; ownership changes are rejected.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Updated release\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Soft-delete project",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner only. Keeps memberships and history; deleted projects are hidden from ordinary reads and collaboration.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Restore project",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/restore",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner only. Restores a deleted project and preserves memberships. Already active projects return 409.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Permanently delete project",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/permanent",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner only. Requires prior soft deletion. Irreversibly removes the project, memberships, and project activity.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List project activity",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/activity",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Members can inspect active project history. Only the owner can inspect a deleted project. Changes and history entries are atomic; update records contain changed field names rather than field contents.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Invite project member",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/invitations",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner only. Returns a seven-day single-use token bound to the normalized email. Reissuing replaces earlier tokens for this project/email. Existing members return 409. No outbound email is sent.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"teammate@example.com\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(201); });",
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const data = pm.response.json();",
+              "  pm.collectionVariables.set(\"invitationToken\", data[\"token\"]);",
+              "  pm.collectionVariables.set(\"invitationId\", data[\"invitation\"][\"id\"]);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List project invitations",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/invitations",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner only. Lists invitation state without secrets or token hashes.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Revoke invitation",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/invitations/{{invitationId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner only. Revokes an unused invitation. Repeated revocation is harmless; accepted invitations return 409.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Accept project invitation",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/invitations/accept",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Authenticate as the invited email account. Invalid, expired, revoked, replaced, reused, and wrong-account tokens return the same 400. Joining a deleted project is forbidden. Creates membership and activity atomically. Limited to 30 attempts per IP per 15 minutes.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"{{invitationToken}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List project members",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/members",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Members only. Returns public profiles and roles scoped to this project; credentials and session fields are excluded.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transfer project ownership",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/ownership",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner only. The new owner must already be a member. The previous owner remains a member. Changes and activity are atomic; the project always has exactly one owner.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"newOwnerId\": \"{{replacementUserId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Preview member removal",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/members/{{userId}}/removal-preview",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner can preview removal of a member; members can preview their own leave. Owner removal returns 409. Default automatic mode balances unfinished, non-deleted tasks within this project, with stable user-ID ties. The owner is the fallback when no other members remain. Manual mode requires an owner-selected remaining member. Preview changes nothing and is advisory.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"mode\": \"AUTOMATIC\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Remove member or leave project",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/members/{{userId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner removes others; members can leave by supplying their own userId. Transfer ownership before the owner can leave. Recalculates allocation under an exclusive project lock; reassigns unfinished active tasks, revokes pending invitations, removes membership, and appends activity atomically. Completed and soft-deleted task history stays intact. Supply mode MANUAL and replacementUserId for owner-selected replacement.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"mode\": \"AUTOMATIC\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create project task",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Any current project member can create a task. Title is required; description defaults to an empty string, status to OPEN, and assignee/due date to null. Date-times require a timezone. Assignees must belong to this project. Project/creator/deletion identifiers cannot be supplied in the body. Creation and activity history commit atomically. Deleted projects reject creation.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Prepare release notes\",\n  \"description\": \"Summarize the changes\",\n  \"dueDate\": \"2027-01-31T12:00:00Z\",\n  \"assigneeId\": \"{{userId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(201); });",
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const data = pm.response.json();",
+              "  pm.collectionVariables.set(\"taskId\", data[\"id\"]);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List project tasks",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Members can list active tasks; deleted=true requires the owner. Supports status/assignee filters, literal title-description search, pagination, and allowlisted sorting. Due dates sort with nulls last; ID breaks ties. Unknown query fields are rejected.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "View project task",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Current members only. Missing tasks, tasks in another project, and deleted tasks/projects return 404.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Discover accessible tasks",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/tasks?assigneeId=me",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Lists tasks only across current memberships in active projects. Use assigneeId=me for assigned-to-me, a UUID for a specific assignee, or unassigned. An inaccessible project filter returns an empty list. Search treats percent, underscore, and backslash literally.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Update project task",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Any current member can edit task details/status or assign a current member. Null assigneeId unassigns and null dueDate clears the deadline. At least one supported field is required; omitted fields stay unchanged. Protected identifiers/deletion fields are rejected. No-op edits preserve updatedAt and add no activity. Reopening completed history with a departed assignee requires a current replacement or explicit null assignee. Updates, assignment history, and membership coordination are transactional. Deleted tasks/projects return 404.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"COMPLETED\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Soft-delete project task",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Any current member may soft-delete an active task. Records deletion actor/time and activity; normal reads hide it. Repeated deletion returns 404. Restoring and permanent deletion are owner-only.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Restore project task",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}/restore",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner only. Requires a deleted task in an active project. Keeps status and other fields. If the historical assignee has left, selects a replacement using the same workload rule as member removal and records the old/new assignment. Unassigned tasks stay unassigned. Active tasks return 409.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Permanently delete task",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks/{{taskId}}/permanent",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner only. Requires prior soft deletion; active tasks return 409. Permanently removes the task and keeps its TASK_PURGED project activity record.",
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
