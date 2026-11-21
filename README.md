@@ -54,6 +54,9 @@ npm run dev
 ```
 
 For compiled code, run `npm run build` followed by `npm start`.
+Startup and background jobs emit JSON logs containing allowlisted operational
+fields. Shutdown drains HTTP requests and jobs before disconnecting PostgreSQL;
+failures are logged and termination is bounded to ten seconds.
 The API defaults to `http://localhost:3000`. Use either the Docker API or the
 locally running API on this port.
 
