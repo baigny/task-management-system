@@ -57,6 +57,9 @@ For compiled code, run `npm run build` followed by `npm start`.
 Startup and background jobs emit JSON logs containing allowlisted operational
 fields. Shutdown drains HTTP requests and jobs before disconnecting PostgreSQL;
 failures are logged and termination is bounded to ten seconds.
+File cleanup claims bounded one-minute leases before deleting files outside
+database transactions. Failed or interrupted jobs become eligible for retry;
+stale workers cannot acknowledge a newer lease.
 The API defaults to `http://localhost:3000`. Use either the Docker API or the
 locally running API on this port.
 

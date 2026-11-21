@@ -193,6 +193,32 @@ describe('protected task attachments', () => {
     await cleanupFiles(vi.fn(), later);
     await expect(stat(storagePath(abandoned))).rejects.toMatchObject({ code: 'ENOENT' });
   });
+  it('releases database locks during deletion and fences expired workers', async () => {
+    const key = randomUUID();
+    ownKeys.add(key);
+    const now = new Date();
+    await db.fileCleanup.create({ data: { storageKey: key, availableAt: now } });
+    let release!: () => void;
+    let started!: () => void;
+    const blocked = new Promise<void>(resolve => { release = resolve; });
+    const deleting = new Promise<void>(resolve => { started = resolve; });
+    const worker = cleanupFiles(vi.fn(), now, async () => { started(); await blocked; });
+    try {
+      await deleting;
+      // A second transaction can acquire this row while the first worker is still in filesystem I/O.
+      const future = new Date(now.getTime() + 120_000);
+      await db.$transaction(async tx => {
+        await tx.$executeRaw`SET LOCAL lock_timeout = '500ms'`;
+        await tx.fileCleanup.update({ where: { storageKey: key }, data: { availableAt: future } });
+      });
+      expect(await cleanupFiles(vi.fn(), now)).toBe(0);
+      release();
+      await worker;
+      expect((await db.fileCleanup.findUniqueOrThrow({ where: { storageKey: key } })).availableAt).toEqual(future);
+    } finally { release(); await worker; }
+    await cleanupFiles(vi.fn(), new Date(now.getTime() + 120_000));
+    expect(await db.fileCleanup.findUnique({ where: { storageKey: key } })).toBeNull();
+  });
   it('queues project files before cascade deletion and drains bounded batches', async () => {
     const record = await db.attachment.findUniqueOrThrow({ where: { id: ids[3] } });
     await request(app).delete(`/api/v1/projects/${projectId}`).set(auth()).expect(204);

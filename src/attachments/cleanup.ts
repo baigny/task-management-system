@@ -16,24 +16,24 @@ export async function queueTaskFiles(tx: Transaction, projectId: string, taskId?
   }
 }
 
-/** Remove up to 100 due files; failures retain durable jobs for a later retry. */
-export function cleanupFiles(onFailure: () => void, now = new Date()) {
-  return db.$transaction(async tx => {
-    const jobs = await tx.$queryRaw<{ storageKey: string }[]>`
+/** Lease at most 100 jobs, release database locks, then perform idempotent filesystem deletion. */
+export async function cleanupFiles(onFailure: () => void, now = new Date(), removeFile = unlink) {
+  const leaseUntil = new Date(now.getTime() + 60_000);
+  const jobs = await db.$queryRaw<{ storageKey: string }[]>`
+    WITH due AS (
       SELECT "storageKey" FROM "FileCleanup" WHERE "availableAt" <= ${now}
-      ORDER BY "availableAt", "storageKey" LIMIT 100 FOR UPDATE SKIP LOCKED`;
-    for (const job of jobs) {
-      try {
-        try { await unlink(storagePath(job.storageKey)); }
-        catch (error) { if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')) throw error; }
-        await tx.fileCleanup.delete({ where: { storageKey: job.storageKey } });
-      } catch {
-        await tx.fileCleanup.update({ where: { storageKey: job.storageKey }, data: { availableAt: new Date(now.getTime() + 60_000) } });
-        onFailure();
-      }
-    }
-    return jobs.length;
-  }, { timeout: 10_000 });
+      ORDER BY "availableAt", "storageKey" LIMIT 100 FOR UPDATE SKIP LOCKED
+    ) UPDATE "FileCleanup" SET "availableAt" = ${leaseUntil}
+      WHERE "storageKey" IN (SELECT "storageKey" FROM due) RETURNING "storageKey"`;
+  for (const job of jobs) {
+    try {
+      try { await removeFile(storagePath(job.storageKey)); }
+      catch (error) { if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')) throw error; }
+      // The lease timestamp fences stale workers after another cleanup run has reclaimed a job.
+      await db.fileCleanup.deleteMany({ where: { storageKey: job.storageKey, availableAt: leaseUntil } });
+    } catch { onFailure(); } // The durable lease becomes retryable even if this process crashes.
+  }
+  return jobs.length;
 }
 
 /** Retry queued deletion and abandoned uploads every minute without overlapping runs. */
