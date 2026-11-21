@@ -11,6 +11,50 @@
   ],
   "item": [
     {
+      "name": "Summarize accessible task",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/ai/summaries",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Current project members only. Sends task title, description, status, and due date to Google; excludes comments, files, and account details. Rechecks membership and task/project lifecycle after generation. Inaccessible or deleted resources return 404; concurrent task changes return 409 TASK_CHANGED. Returns a suggestion and sourceUpdatedAt without saving anything. Shares the ten-per-account/15-minute description quota and the same provider errors and timeout. No database locks are held during the provider call.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"projectId\": \"{{projectId}}\",\n  \"taskId\": \"{{taskId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected status', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "Suggest task description",
       "request": {
         "method": "POST",

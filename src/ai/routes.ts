@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { authenticate, getAuth, noStore } from '../auth/middleware.js';
 import { generateDescription } from './controller.js';
+import { generateSummary } from './summary-controller.js';
 
 export const aiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, limit: 10,
@@ -12,3 +13,4 @@ export const aiLimiter = rateLimit({
 export const aiRoutes = Router();
 aiRoutes.use(noStore, authenticate, aiLimiter);
 aiRoutes.post('/descriptions', generateDescription);
+aiRoutes.post('/summaries', generateSummary);

@@ -12,7 +12,7 @@ through comment threads and protected attachments.
 - Protected JPG, JPEG, PNG, and PDF attachments up to 10 MB.
 - Soft deletion, restoration, activity history, and permanent-deletion cascades.
 - Persisted notifications, unread controls, and authenticated SSE replay.
-- Optional Gemini task-description suggestions, saved only on explicit request.
+- Optional Gemini task-description suggestions and accessible-task summaries.
 
 ## Tech stack
 
@@ -287,6 +287,21 @@ writes task, activity, or notification records. Input is sent to Google for
 processing; keep credentials out of task ideas. Requests use a single provider
 attempt with a default 15-second deadline and a shared account limit of ten AI
 requests per 15 minutes. The response is not cached.
+
+To summarize an existing task:
+
+```sh
+curl -X POST http://localhost:3000/api/v1/ai/summaries \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"projectId":"PROJECT_UUID","taskId":"TASK_UUID"}'
+```
+
+This returns `summary`, `model`, `taskId`, and `sourceUpdatedAt`. Only the task's
+title, description, status, and due date are sent to Google. Comments, attachments,
+and account details are excluded. Current membership is required before generation
+and before returning the result; deleted tasks/projects return 404. If the task
+changes during generation, `409 TASK_CHANGED` asks you to request a fresh summary.
+Summaries share the description request quota and never change stored data.
 
 Missing configuration returns `503 AI_NOT_CONFIGURED`; a deadline returns
 `504 AI_TIMEOUT`. Invalid, blocked, or incomplete output returns
