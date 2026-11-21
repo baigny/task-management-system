@@ -2,9 +2,7 @@ import { open } from 'node:fs/promises';
 import { resolve, extname } from 'node:path';
 import { config } from '../config.js';
 import { ApiError } from '../errors.js';
-
-export const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const formats: Record<string, string> = { '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
+import { ATTACHMENT_FORMATS } from '../limits.js';
 
 /** Resolve only generated UUID storage keys inside the configured private directory. */
 export function storagePath(key: string) {
@@ -15,7 +13,7 @@ export function storagePath(key: string) {
 /** Match allowlisted extensions and declared media types before consuming file content. */
 export function validateFileName(name: string, mimeType: string) {
   const hasControl = Array.from(name).some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127);
-  if (!name.trim() || name.length > 200 || hasControl || /[/\\]/.test(name) || formats[extname(name).toLowerCase()] !== mimeType) {
+  if (!name.trim() || name.length > 200 || hasControl || /[/\\]/.test(name) || ATTACHMENT_FORMATS[extname(name).toLowerCase()] !== mimeType) {
     throw new ApiError(415, 'UNSUPPORTED_FILE', 'Use PDF, PNG, or JPEG with a matching file extension and media type');
   }
 }

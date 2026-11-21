@@ -1,10 +1,11 @@
 import { TaskStatus } from '@prisma/client';
 import { z } from 'zod';
 import { id, pagination } from '../validation.js';
+import { MAX_TASK_TITLE_LENGTH, MAX_TASK_DESCRIPTION_LENGTH } from '../limits.js';
 
 const taskFields = {
-  title: z.string().trim().min(1).max(200),
-  description: z.string().max(10000),
+  title: z.string().trim().min(1).max(MAX_TASK_TITLE_LENGTH),
+  description: z.string().max(MAX_TASK_DESCRIPTION_LENGTH),
   dueDate: z.iso.datetime({ offset: true }).transform(value => new Date(value)).nullable().optional(),
   status: z.enum(TaskStatus),
   assigneeId: id.nullable().optional(),

@@ -1,5 +1,6 @@
 import { activityActions } from './activity.js';
-import { TaskStatus } from '@prisma/client';
+import { NotificationType, TaskStatus } from '@prisma/client';
+import { ATTACHMENT_FORMATS, MAX_ATTACHMENT_BYTES, MAX_TASK_TITLE_LENGTH, MAX_TASK_DESCRIPTION_LENGTH, MAX_AI_IDEA_LENGTH, MAX_AI_SUMMARY_LENGTH } from './limits.js';
 import type { OpenAPIV3 } from 'openapi-types';
 
 export type Schema = OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject;
@@ -17,19 +18,19 @@ export const ref = (name: string): OpenAPIV3.ReferenceObject => ({ $ref: `#/comp
 /** Describe closed objects, omitting the OpenAPI required list for entirely optional fields. */
 export const object = (properties: Record<string, Schema>, required = Object.keys(properties)): OpenAPIV3.SchemaObject => ({ type: 'object', properties, ...(required.length ? { required } : {}), additionalProperties: false });
 export const schemas: Record<string, Schema> = {
-  DescriptionIdea: object({ input: { type: 'string', minLength: 1, maxLength: 2000, description: 'Task idea or requirements; trimmed before generation.' } }),
-  DescriptionSuggestion: object({ description: { type: 'string', minLength: 1, maxLength: 10000 }, model: { type: 'string' } }),
+  DescriptionIdea: object({ input: { type: 'string', minLength: 1, maxLength: MAX_AI_IDEA_LENGTH, description: 'Task idea or requirements; trimmed before generation.' } }),
+  DescriptionSuggestion: object({ description: { type: 'string', minLength: 1, maxLength: MAX_TASK_DESCRIPTION_LENGTH }, model: { type: 'string' } }),
   SummaryInput: object({ projectId: { type: 'string', format: 'uuid' }, taskId: { type: 'string', format: 'uuid' } }),
-  TaskSummary: object({ summary: { type: 'string', minLength: 1, maxLength: 4000 }, model: { type: 'string' }, taskId: { type: 'string', format: 'uuid' }, sourceUpdatedAt: { type: 'string', format: 'date-time' } }),
+  TaskSummary: object({ summary: { type: 'string', minLength: 1, maxLength: MAX_AI_SUMMARY_LENGTH }, model: { type: 'string' }, taskId: { type: 'string', format: 'uuid' }, sourceUpdatedAt: { type: 'string', format: 'date-time' } }),
   NotificationStream: { type: 'string', description: 'UTF-8 SSE: id is the notification ID, event is notification, data is a Notification JSON object. Heartbeats are comment frames; stream-error signals a retryable database failure.' },
-  Notification: object({ id: { type: 'integer' }, userId: { type: 'string', format: 'uuid' }, actorId: { type: 'string', format: 'uuid', nullable: true }, projectId: { type: 'string', format: 'uuid' }, taskId: { type: 'string', format: 'uuid' }, type: { type: 'string', enum: ['TASK_ASSIGNED', 'TASK_UNASSIGNED', 'TASK_UPDATED', 'TASK_DELETED', 'TASK_RESTORED', 'COMMENT_ADDED', 'COMMENT_REPLIED', 'ATTACHMENT_ADDED', 'ATTACHMENT_DELETED'] }, metadata: { type: 'object', additionalProperties: true }, createdAt: { type: 'string', format: 'date-time' }, readAt: { type: 'string', format: 'date-time', nullable: true }, message: { type: 'string' }, actor: { type: 'object', nullable: true, properties: { id: { type: 'string', format: 'uuid' }, name: { type: 'string' } }, required: ['id', 'name'], additionalProperties: false }, project: object({ id: { type: 'string', format: 'uuid' }, name: { type: 'string' } }), task: object({ id: { type: 'string', format: 'uuid' }, title: { type: 'string' }, status: ref('TaskStatus'), deletedAt: { type: 'string', format: 'date-time', nullable: true } }) }),
+  Notification: object({ id: { type: 'integer' }, userId: { type: 'string', format: 'uuid' }, actorId: { type: 'string', format: 'uuid', nullable: true }, projectId: { type: 'string', format: 'uuid' }, taskId: { type: 'string', format: 'uuid' }, type: { type: 'string', enum: Object.values(NotificationType) }, metadata: { type: 'object', additionalProperties: true }, createdAt: { type: 'string', format: 'date-time' }, readAt: { type: 'string', format: 'date-time', nullable: true }, message: { type: 'string' }, actor: { type: 'object', nullable: true, properties: { id: { type: 'string', format: 'uuid' }, name: { type: 'string' } }, required: ['id', 'name'], additionalProperties: false }, project: object({ id: { type: 'string', format: 'uuid' }, name: { type: 'string' } }), task: object({ id: { type: 'string', format: 'uuid' }, title: { type: 'string' }, status: ref('TaskStatus'), deletedAt: { type: 'string', format: 'date-time', nullable: true } }) }),
   NotificationList: object({ items: { type: 'array', items: ref('Notification') }, total: { type: 'integer' }, unreadCount: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' } }),
   UnreadCount: object({ unreadCount: { type: 'integer' } }),
   ReadAllInput: object({ projectId: { type: 'string', format: 'uuid' } }, []),
   ReadAllResult: object({ updatedCount: { type: 'integer' } }),
 
   AttachmentUpload: object({ file: { type: 'string', format: 'binary', description: 'One nonempty PDF, PNG, JPG, or JPEG; maximum 10 MB. Extension, media type, and signature must match.' } }),
-  Attachment: object({ id: { type: 'string', format: 'uuid' }, taskId: { type: 'string', format: 'uuid' }, uploaderId: { type: 'string', format: 'uuid', nullable: true }, originalName: { type: 'string' }, mimeType: { type: 'string', enum: ['application/pdf', 'image/png', 'image/jpeg'] }, size: { type: 'integer', minimum: 1, maximum: 10485760 }, createdAt: { type: 'string', format: 'date-time' } }),
+  Attachment: object({ id: { type: 'string', format: 'uuid' }, taskId: { type: 'string', format: 'uuid' }, uploaderId: { type: 'string', format: 'uuid', nullable: true }, originalName: { type: 'string' }, mimeType: { type: 'string', enum: [...new Set(Object.values(ATTACHMENT_FORMATS))] }, size: { type: 'integer', minimum: 1, maximum: MAX_ATTACHMENT_BYTES }, createdAt: { type: 'string', format: 'date-time' } }),
   AttachmentList: object({ items: { type: 'array', items: ref('Attachment') }, total: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' } }),
   FileDownload: { type: 'string', format: 'binary' },
   CommentInput: object({ body: { type: 'string', minLength: 1, maxLength: 5000 }, parentId: { type: 'string', format: 'uuid', description: 'Omit for a new thread; provide a root comment ID to reply.' } }, ['body']),
@@ -65,8 +66,8 @@ export const schemas: Record<string, Schema> = {
   TaskList: object({ items: { type: 'array', items: ref('Task') }, total: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' } }),
   TaskStatus: { type: 'string', enum: Object.values(TaskStatus) },
   Task: object({ id: { type: 'string', format: 'uuid' }, projectId: { type: 'string', format: 'uuid' }, title: { type: 'string' }, description: { type: 'string' }, dueDate: { type: 'string', format: 'date-time', nullable: true }, status: ref('TaskStatus'), assigneeId: { type: 'string', format: 'uuid', nullable: true }, createdById: { type: 'string', format: 'uuid', nullable: true }, createdAt: { type: 'string', format: 'date-time' }, updatedAt: { type: 'string', format: 'date-time' }, deletedAt: { type: 'string', format: 'date-time', nullable: true }, deletedById: { type: 'string', format: 'uuid', nullable: true } }),
-  TaskUpdate: { ...object({ title: { type: 'string', minLength: 1, maxLength: 200 }, description: { type: 'string', maxLength: 10000 }, dueDate: { type: 'string', format: 'date-time', nullable: true }, status: ref('TaskStatus'), assigneeId: { type: 'string', format: 'uuid', nullable: true } }, []), minProperties: 1 },
-  TaskInput: object({ title: { type: 'string', minLength: 1, maxLength: 200 }, description: { type: 'string', maxLength: 10000, default: '' }, dueDate: { type: 'string', format: 'date-time', nullable: true }, status: { ...ref('TaskStatus') }, assigneeId: { type: 'string', format: 'uuid', nullable: true } }, ['title']),
+  TaskUpdate: { ...object({ title: { type: 'string', minLength: 1, maxLength: MAX_TASK_TITLE_LENGTH }, description: { type: 'string', maxLength: MAX_TASK_DESCRIPTION_LENGTH }, dueDate: { type: 'string', format: 'date-time', nullable: true }, status: ref('TaskStatus'), assigneeId: { type: 'string', format: 'uuid', nullable: true } }, []), minProperties: 1 },
+  TaskInput: object({ title: { type: 'string', minLength: 1, maxLength: MAX_TASK_TITLE_LENGTH }, description: { type: 'string', maxLength: MAX_TASK_DESCRIPTION_LENGTH, default: '' }, dueDate: { type: 'string', format: 'date-time', nullable: true }, status: { ...ref('TaskStatus') }, assigneeId: { type: 'string', format: 'uuid', nullable: true } }, ['title']),
   ProjectInput: object({ name: { type: 'string', minLength: 1, maxLength: 100 }, description: { type: 'string', maxLength: 5000, default: '' } }, ['name']),
 };
 

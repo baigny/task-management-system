@@ -5,7 +5,8 @@ import multer from 'multer';
 import { db } from '../db.js';
 import { config } from '../config.js';
 import { ApiError } from '../errors.js';
-import { MAX_FILE_SIZE, validateFileName } from './storage.js';
+import { validateFileName } from './storage.js';
+import { MAX_ATTACHMENT_BYTES } from '../limits.js';
 
 /** Make failed uploads eligible for deletion; the preexisting reservation survives database outages. */
 export async function abandonUpload(key: string, req: Request) {
@@ -25,7 +26,7 @@ export async function receiveUpload(req: Request, res: Response) {
         /** Use only the generated key, never an incoming filename, for filesystem storage. */
         filename(_req, _file, callback) { callback(null, key); },
       }),
-      limits: { fileSize: MAX_FILE_SIZE, files: 1, fields: 0, parts: 1, fieldNameSize: 100, headerPairs: 50 },
+      limits: { fileSize: MAX_ATTACHMENT_BYTES, files: 1, fields: 0, parts: 1, fieldNameSize: 100, headerPairs: 50 },
       /** Reject unsupported filename/media-type pairs before streaming their content to disk. */
       fileFilter(_req, file, callback) {
         try { validateFileName(file.originalname, file.mimetype); callback(null, true); }

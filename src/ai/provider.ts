@@ -2,6 +2,7 @@ import { GoogleGenAI, ApiError as GoogleApiError } from '@google/genai';
 import { config } from '../config.js';
 import { ApiError } from '../errors.js';
 import { logOperation } from '../logging.js';
+import { MAX_TASK_DESCRIPTION_LENGTH } from '../limits.js';
 
 let client: GoogleGenAI | undefined;
 
@@ -35,7 +36,7 @@ export async function generateSuggestion(instruction: string, input: string) {
     ]);
     const text = response.text?.trim();
     const finishReason = response.candidates?.[0]?.finishReason;
-    if (!text || text.length > 10_000 || (finishReason && finishReason !== 'STOP')) {
+    if (!text || text.length > MAX_TASK_DESCRIPTION_LENGTH || (finishReason && finishReason !== 'STOP')) {
       throw new ApiError(502, 'AI_INVALID_RESPONSE', 'Gemini could not provide a complete suggestion');
     }
     return { text, model: config.GEMINI_MODEL };

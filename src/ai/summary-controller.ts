@@ -1,10 +1,8 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { id } from '../validation.js';
 import { getAuth } from '../auth/middleware.js';
 import { summarizeTask } from './summary.js';
-
-const summaryInput = z.object({ projectId: id, taskId: id }).strict();
+import { summaryInput } from './validation.js';
 
 /** Bind task summaries to current project membership and reject caller-supplied task content. */
 export async function generateSummary(req: Request, res: Response) {

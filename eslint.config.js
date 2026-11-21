@@ -4,12 +4,7 @@ export default tseslint.config(
   { ignores: ['dist/**', 'node_modules/**', 'coverage/**', '.tmp/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  {
-    rules: {
-      '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-    },
-  },
+  { rules: { '@typescript-eslint/no-explicit-any': 'error', '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }] } },
   {
     files: ['**/*.ts'],
     languageOptions: {
