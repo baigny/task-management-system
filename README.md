@@ -232,11 +232,21 @@ npm run db:test:up
 npm run test:integration
 ```
 
-`check` runs type checking, linting, Swagger/Postman consistency checks, unit/contract
+`check` runs type checking, type-aware linting, Swagger/Postman consistency checks, unit/contract
 tests, and build. Integration tests apply migrations to the isolated test database
 on port 5433; development PostgreSQL uses port 5432. The runner rejects database names
 without `_test` and never falls back to the development connection. GitHub Actions
 runs checks and integration tests against PostgreSQL for branch pushes and PRs.
+Lint checks include unhandled promises and promises used in synchronous callback
+positions, across application code, scripts, and tests.
+
+Forward Vitest filters and options after `--` to run only the relevant integration
+tests; database isolation validation and migrations still run first:
+
+```sh
+npm run test:integration -- tests/integration/ai-summary.test.ts
+npm run test:integration -- tests/integration/tasks.test.ts -t "safe defaults"
+```
 
 Coverage includes authentication and session revocation, project isolation,
 invitations, reassignment and deletion cascades, threaded comments, protected
